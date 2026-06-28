@@ -1,0 +1,21 @@
+# Compilation artifacts
+vss/vss
+vss/vss_asan
+*.o
+*.obj
+
+# Generated HTML outputs
+*.html
+!examples/*.html
+temp_serve.html
+
+# IDE configuration
+.vscode/
+.antigravity-ide/
+.idea/
+*.suo
+*.user
+
+# OS temp files
+.DS_Store
+Thumbs.db

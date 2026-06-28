@@ -1,0 +1,6 @@
+make score becomes 85
+when score at_least 90
+    say "Grade A"
+otherwise
+    say "Grade B"
+finish

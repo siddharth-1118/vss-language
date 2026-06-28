@@ -1,0 +1,6 @@
+make age becomes 20
+when age at_least 18
+    say "Adult"
+otherwise
+    say "Minor"
+finish

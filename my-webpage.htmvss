@@ -1,0 +1,9 @@
+hi htmvss
+    say "    <div class='bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 max-w-md w-full text-center'>"
+    say "        <h1 class='text-4xl font-extrabold text-indigo-400 mb-4'>hi htmvss</h1>"
+    say "        <p class='text-slate-300 mb-6'>This page was compiled from a <code>.htmvss</code> source file.</p>"
+    
+    make current_version becomes "1.0.0"
+    say "        <p class='text-xs text-slate-500'>Compiled using the VSS v" + current_version + " compiler.</p>"
+    say "    </div>"
+bye htmvss

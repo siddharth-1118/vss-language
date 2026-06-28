@@ -1,0 +1,6 @@
+task addition needs first second
+    send first + second
+finish
+
+make answer becomes addition with 4 5
+say answer

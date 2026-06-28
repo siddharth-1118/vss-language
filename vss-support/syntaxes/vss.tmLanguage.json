@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "VSS",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#numbers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.note.vss",
+          "match": "\\bnote\\b.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.vss",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.vss",
+              "match": "\\\\."
+            },
+            {
+              "include": "text.html.basic"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.vss",
+          "match": "\\b(when|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss)\\b"
+        },
+        {
+          "name": "keyword.other.vss",
+          "match": "\\b(make|keep|becomes|say|put|into|set|field|item)\\b"
+        },
+        {
+          "name": "constant.language.boolean.vss",
+          "match": "\\b(yes|no)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.word.vss",
+          "match": "\\b(same_as|not_same_as|above|below|at_least|at_most|not|of|exists|size)\\b"
+        },
+        {
+          "name": "keyword.operator.arithmetic.vss",
+          "match": "(\\+|\\-|\\*|/|%)"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.vss",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.vss"
+}

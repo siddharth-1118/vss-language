@@ -1,0 +1,12 @@
+note Welcome to VSS! 
+note Start writing your code here.
+
+make greeting becomes "Hello from VSS!"
+say greeting
+
+task greet_user needs username
+    send "Welcome back, " + username + "!"
+finish
+
+make message becomes greet_user with "Developer"
+say message

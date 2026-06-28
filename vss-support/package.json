@@ -1,0 +1,40 @@
+{
+  "name": "vss-support",
+  "displayName": "VSS Language Support",
+  "description": "Syntax highlighting and real-time diagnostics for VSS and HTMVSS files",
+  "version": "1.0.0",
+  "publisher": "vss-team",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:vss"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "vss",
+        "aliases": [
+          "VSS",
+          "vss"
+        ],
+        "extensions": [
+          ".vss",
+          ".htmvss"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vss",
+        "scopeName": "source.vss",
+        "path": "./syntaxes/vss.tmLanguage.json"
+      }
+    ]
+  }
+}

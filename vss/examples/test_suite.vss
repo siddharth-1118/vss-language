@@ -1,0 +1,90 @@
+note VSS Comprehensive Test Suite
+
+note 1. Arithmetic and Logic
+make a becomes 10
+make b becomes 20
+when a + b same_as 30
+    say "Test 1 passed: addition"
+otherwise
+    say "Test 1 failed: addition"
+finish
+
+note 2. Loops and skip/leave
+make sum becomes 0
+repeat i through 1 to 5
+    when i same_as 3
+        skip
+    finish
+    sum becomes sum + i
+finish
+when sum same_as 12
+    say "Test 2 passed: range loop with skip"
+otherwise
+    say "Test 2 failed: range loop with skip (got " + sum + ")"
+finish
+
+note 3. Lists
+make items becomes ["pen", "book"]
+put "cup" into items
+when size of items same_as 3 and items item 2 same_as "cup"
+    say "Test 3 passed: list operations"
+otherwise
+    say "Test 3 failed: list operations"
+finish
+
+note 4. Maps
+make user becomes map [
+    "name": "Asha"
+    "age": 22
+]
+set user field "city" becomes "Delhi"
+when user field "name" same_as "Asha" and user field "city" same_as "Delhi"
+    say "Test 4 passed: map operations"
+otherwise
+    say "Test 4 failed: map operations"
+finish
+
+note 5. Choose Statement
+make color becomes "green"
+make result becomes ""
+choose color
+    case "red"
+        result becomes "stop"
+    case "green"
+        result becomes "go"
+    otherwise
+        result becomes "unknown"
+finish
+when result same_as "go"
+    say "Test 5 passed: choose statement"
+otherwise
+    say "Test 5 failed: choose statement"
+finish
+
+note 6. Error Handling
+make caught becomes no
+attempt
+    note division by zero or invalid indexing
+    make x becomes items item 10
+rescue problem
+    caught becomes yes
+finish
+when caught same_as yes
+    say "Test 6 passed: error handling"
+otherwise
+    say "Test 6 failed: error handling"
+finish
+
+note 7. File Built-ins
+write "file contents" into "temp_test.txt"
+when exists "temp_test.txt"
+    make content becomes read "temp_test.txt"
+    when content same_as "file contents"
+        say "Test 7 passed: file write and read"
+    otherwise
+        say "Test 7 failed: file read content mismatch"
+    finish
+    erase "temp_test.txt"
+otherwise
+    say "Test 7 failed: file does not exist after write"
+finish

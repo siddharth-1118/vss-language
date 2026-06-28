@@ -1,0 +1,77 @@
+#include "token.h"
+
+const char *token_type_name(TokenType type) {
+    switch (type) {
+        case TOKEN_EOF: return "TOKEN_EOF";
+        case TOKEN_ERROR: return "TOKEN_ERROR";
+        case TOKEN_NEWLINE: return "TOKEN_NEWLINE";
+        case TOKEN_IDENTIFIER: return "TOKEN_IDENTIFIER";
+        case TOKEN_NUMBER: return "TOKEN_NUMBER";
+        case TOKEN_STRING: return "TOKEN_STRING";
+        case TOKEN_SAY: return "TOKEN_SAY";
+        case TOKEN_MAKE: return "TOKEN_MAKE";
+        case TOKEN_KEEP: return "TOKEN_KEEP";
+        case TOKEN_BECOMES: return "TOKEN_BECOMES";
+        case TOKEN_WHEN: return "TOKEN_WHEN";
+        case TOKEN_ORWHEN: return "TOKEN_ORWHEN";
+        case TOKEN_OTHERWISE: return "TOKEN_OTHERWISE";
+        case TOKEN_FINISH: return "TOKEN_FINISH";
+        case TOKEN_REPEAT: return "TOKEN_REPEAT";
+        case TOKEN_TIMES: return "TOKEN_TIMES";
+        case TOKEN_THROUGH: return "TOKEN_THROUGH";
+        case TOKEN_TO: return "TOKEN_TO";
+        case TOKEN_EACH: return "TOKEN_EACH";
+        case TOKEN_IN: return "TOKEN_IN";
+        case TOKEN_DURING: return "TOKEN_DURING";
+        case TOKEN_LEAVE: return "TOKEN_LEAVE";
+        case TOKEN_SKIP: return "TOKEN_SKIP";
+        case TOKEN_TASK: return "TOKEN_TASK";
+        case TOKEN_NEEDS: return "TOKEN_NEEDS";
+        case TOKEN_SEND: return "TOKEN_SEND";
+        case TOKEN_WITH: return "TOKEN_WITH";
+        case TOKEN_YES: return "TOKEN_YES";
+        case TOKEN_NO: return "TOKEN_NO";
+        case TOKEN_EMPTY: return "TOKEN_EMPTY";
+        case TOKEN_AND: return "TOKEN_AND";
+        case TOKEN_OR: return "TOKEN_OR";
+        case TOKEN_NOT: return "TOKEN_NOT";
+        case TOKEN_ABOVE: return "TOKEN_ABOVE";
+        case TOKEN_BELOW: return "TOKEN_BELOW";
+        case TOKEN_AT_LEAST: return "TOKEN_AT_LEAST";
+        case TOKEN_AT_MOST: return "TOKEN_AT_MOST";
+        case TOKEN_SAME_AS: return "TOKEN_SAME_AS";
+        case TOKEN_NOT_SAME_AS: return "TOKEN_NOT_SAME_AS";
+        case TOKEN_ITEM: return "TOKEN_ITEM";
+        case TOKEN_FIELD: return "TOKEN_FIELD";
+        case TOKEN_PUT: return "TOKEN_PUT";
+        case TOKEN_INTO: return "TOKEN_INTO";
+        case TOKEN_MAP: return "TOKEN_MAP";
+        case TOKEN_SET: return "TOKEN_SET";
+        case TOKEN_GRAB: return "TOKEN_GRAB";
+        case TOKEN_ATTEMPT: return "TOKEN_ATTEMPT";
+        case TOKEN_RESCUE: return "TOKEN_RESCUE";
+        case TOKEN_READ: return "TOKEN_READ";
+        case TOKEN_WRITE: return "TOKEN_WRITE";
+        case TOKEN_ADD: return "TOKEN_ADD";
+        case TOKEN_ERASE: return "TOKEN_ERASE";
+        case TOKEN_EXISTS: return "TOKEN_EXISTS";
+        case TOKEN_SIZE: return "TOKEN_SIZE";
+        case TOKEN_OF: return "TOKEN_OF";
+        case TOKEN_CHOOSE: return "TOKEN_CHOOSE";
+        case TOKEN_CASE: return "TOKEN_CASE";
+        case TOKEN_NOTE: return "TOKEN_NOTE";
+        case TOKEN_HI: return "TOKEN_HI";
+        case TOKEN_BYE: return "TOKEN_BYE";
+        case TOKEN_HTMVSS: return "TOKEN_HTMVSS";
+        case TOKEN_PLUS: return "TOKEN_PLUS";
+        case TOKEN_MINUS: return "TOKEN_MINUS";
+        case TOKEN_STAR: return "TOKEN_STAR";
+        case TOKEN_SLASH: return "TOKEN_SLASH";
+        case TOKEN_PERCENT: return "TOKEN_PERCENT";
+        case TOKEN_LEFT_BRACKET: return "TOKEN_LEFT_BRACKET";
+        case TOKEN_RIGHT_BRACKET: return "TOKEN_RIGHT_BRACKET";
+        case TOKEN_COMMA: return "TOKEN_COMMA";
+        case TOKEN_COLON: return "TOKEN_COLON";
+        default: return "TOKEN_UNKNOWN";
+    }
+}
