@@ -1,5 +1,5 @@
 {
-  "name": "vss-support",
+  "name": "vss-language",
   "displayName": "Very Simple Syntax (VSS) Support",
   "description": "Syntax highlighting and real-time diagnostics for VSS and HTMVSS files",
   "version": "1.0.0",
