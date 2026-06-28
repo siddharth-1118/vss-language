@@ -3,7 +3,7 @@
   "displayName": "VSS Language Support",
   "description": "Syntax highlighting and real-time diagnostics for VSS and HTMVSS files",
   "version": "1.0.0",
-  "publisher": "vss-team",
+  "publisher": "saisiddharth",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -13,7 +13,7 @@
   "activationEvents": [
     "onLanguage:vss"
   ],
-  "main": "./extension.js",
+  "main": "extension.js",
   "contributes": {
     "languages": [
       {
