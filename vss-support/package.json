@@ -2,7 +2,7 @@
   "name": "vss-language",
   "displayName": "Very Simple Syntax Language",
   "description": "Syntax highlighting and real-time diagnostics for VSS and HTMVSS files",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "saisiddharth",
   "engines": {
     "vscode": "^1.60.0"
