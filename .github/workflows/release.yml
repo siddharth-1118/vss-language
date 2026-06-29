@@ -23,21 +23,25 @@ jobs:
             label: linux-x64
             archive: vss-linux-x64.tar.gz
             exe: vss
+            arch_flag: ""
 
           - os: macos-latest
             label: macos-arm64
             archive: vss-macos-arm64.tar.gz
             exe: vss
+            arch_flag: "-arch arm64"
 
-          - os: macos-13
+          - os: macos-latest
             label: macos-x64
             archive: vss-macos-x64.tar.gz
             exe: vss
+            arch_flag: "-arch x86_64"
 
           - os: windows-latest
             label: windows-x64
             archive: vss-windows-x64.zip
             exe: vss.exe
+            arch_flag: ""
 
     steps:
       # ── Checkout ────────────────────────────────────────────────────────────
@@ -74,7 +78,7 @@ jobs:
         run: |
           cd vss
           make clean
-          make VERSION=${{ steps.version.outputs.VERSION }} BUILD_TYPE=Release
+          make VERSION=${{ steps.version.outputs.VERSION }} BUILD_TYPE=Release CFLAGS="-std=c11 -Wall -Wextra -pedantic -g ${{ matrix.arch_flag }}"
 
       # ── Compile: Windows ─────────────────────────────────────────────────────
       - name: Compile VSS (Windows)
