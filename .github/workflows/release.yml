@@ -41,7 +41,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
-          mingw64: true
+          msystem: mingw64
           install: mingw-w64-x86_64-gcc
 
       # Build VSS
