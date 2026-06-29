@@ -96,7 +96,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           ./vss/vss version
-          ./vss/vss examples/hello.vss
+          ./vss/vss vss/examples/hello.vss
 
       - name: Smoke test binary (Windows)
         if: matrix.os == 'windows-latest'
