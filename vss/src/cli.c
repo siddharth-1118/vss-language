@@ -511,24 +511,73 @@ static int remove_package(const char *name) {
     }
 }
 
+// Returns true if the string ends with the given suffix (case-insensitive on extension)
+static int has_extension(const char *str, const char *ext) {
+    size_t slen = strlen(str);
+    size_t elen = strlen(ext);
+    if (slen < elen) return 0;
+    const char *tail = str + slen - elen;
+    // Case-insensitive compare for the extension part
+    for (size_t i = 0; i < elen; i++) {
+        char a = tail[i], b = ext[i];
+        if (a >= 'A' && a <= 'Z') a += 32;
+        if (b >= 'A' && b <= 'Z') b += 32;
+        if (a != b) return 0;
+    }
+    return 1;
+}
+
 int vss_run_cli(int argc, char **argv) {
     if (argc < 2) {
         print_help();
         return 0;
     }
-    
+
     const char *cmd = argv[1];
-    
+
+    // ── Priority 1: File dispatch ─────────────────────────────────────────────
+    // If the first argument looks like a .vss or .vssc file, treat it as a
+    // file path immediately — before any command name matching.
+    // This makes `vss hello.vss` work exactly as documented.
+    int looks_like_vss  = has_extension(cmd, ".vss");
+    int looks_like_vssc = has_extension(cmd, ".vssc");
+
+    if (looks_like_vss || looks_like_vssc) {
+        if (!vss_file_exists(cmd)) {
+            fprintf(stderr, "\033[1;31mError:\033[0m File not found: '%s'\n", cmd);
+            return 1;
+        }
+        return run_file(cmd);
+    }
+
+    // Also dispatch if the argument is an existing file with any extension
+    // (e.g., a compiled .vssc passed without explicit extension check above)
+    if (vss_file_exists(cmd) && !has_extension(cmd, ".vss") && !has_extension(cmd, ".vssc")) {
+        // Only do this for paths that contain a directory separator or a dot
+        // so bare command words are not accidentally dispatched as files.
+        const char *p = cmd;
+        int has_sep = 0, has_dot = 0;
+        while (*p) {
+            if (*p == '/' || *p == '\\') { has_sep = 1; break; }
+            if (*p == '.') has_dot = 1;
+            p++;
+        }
+        if (has_sep || has_dot) {
+            return run_file(cmd);
+        }
+    }
+
+    // ── Priority 2: Named commands ────────────────────────────────────────────
     if (strcmp(cmd, "help") == 0 || strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {
         print_help();
         return 0;
     }
-    
+
     if (strcmp(cmd, "version") == 0 || strcmp(cmd, "--version") == 0 || strcmp(cmd, "-v") == 0) {
         print_version();
         return 0;
     }
-    
+
     if (strcmp(cmd, "run") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing file argument. Usage: vss run <file.vss>\n");
@@ -536,7 +585,7 @@ int vss_run_cli(int argc, char **argv) {
         }
         return run_file(argv[2]);
     }
-    
+
     if (strcmp(cmd, "build") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing file argument. Usage: vss build <file.vss>\n");
@@ -544,7 +593,7 @@ int vss_run_cli(int argc, char **argv) {
         }
         return build_file(argv[2]);
     }
-    
+
     if (strcmp(cmd, "new") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing project name. Usage: vss new <ProjectName>\n");
@@ -552,13 +601,12 @@ int vss_run_cli(int argc, char **argv) {
         }
         return create_project(argv[2]);
     }
-    
+
     if (strcmp(cmd, "init") == 0) {
         return init_project();
     }
-    
+
     if (strcmp(cmd, "test") == 0) {
-        // Runs default test_suite.vss if it exists
         if (vss_file_exists("examples/test_suite.vss")) {
             return run_file("examples/test_suite.vss");
         } else if (vss_file_exists("test_suite.vss")) {
@@ -572,7 +620,7 @@ int vss_run_cli(int argc, char **argv) {
         fprintf(stderr, "\033[1;31mError:\033[0m No tests found.\n");
         return 1;
     }
-    
+
     if (strcmp(cmd, "format") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss format <file.vss>\n");
@@ -580,7 +628,7 @@ int vss_run_cli(int argc, char **argv) {
         }
         return format_file(argv[2]);
     }
-    
+
     if (strcmp(cmd, "lint") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss lint <file.vss>\n");
@@ -588,7 +636,7 @@ int vss_run_cli(int argc, char **argv) {
         }
         return lint_file(argv[2]);
     }
-    
+
     if (strcmp(cmd, "docs") == 0) {
         if (argc < 3) {
             fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss docs <file.vss>\n");
@@ -596,17 +644,17 @@ int vss_run_cli(int argc, char **argv) {
         }
         return docs_generator(argv[2]);
     }
-    
+
     if (strcmp(cmd, "doctor") == 0) {
         return doctor_check();
     }
-    
+
     if (strcmp(cmd, "clean") == 0) {
         vss_list_dir_clean_vssc(".");
         printf("\033[1;32mClean complete.\033[0m\n");
         return 0;
     }
-    
+
     if (strcmp(cmd, "package") == 0) {
         if (argc < 3) {
             printf("VSS Package Manager\n\nUsage:\n  vss package install <name>   Install a package from the registry\n  vss package remove <name>    Remove an installed package\n  vss package update           Update all installed packages\n  vss package publish          Submit a package to the registry\n");
@@ -638,26 +686,22 @@ int vss_run_cli(int argc, char **argv) {
             return 1;
         }
     }
-    
+
     if (strcmp(cmd, "update") == 0) {
         printf("\033[1;36mChecking for updates...\033[0m\n");
-        printf("VSS is already up to date. Current version: v1.0.0\n");
+        printf("VSS is up to date. Current version: %s\n", VSS_VERSION_STRING);
         return 0;
     }
-    
-    // Fallback: Check if file exists, execute directly
-    if (vss_file_exists(cmd)) {
-        return run_file(cmd);
-    }
-    
-    // Mistyped suggestions (Levenshtein distance <= 2)
+
+    // ── Priority 3: Unknown command with typo suggestions ────────────────────
     const char *commands[] = {
-        "run", "build", "new", "init", "test", "format", "lint", "docs", "doctor", "clean", "package", "update", "help", "version"
+        "run", "build", "new", "init", "test", "format", "lint",
+        "docs", "doctor", "clean", "package", "update", "help", "version"
     };
-    int num_commands = sizeof(commands) / sizeof(char *);
+    int num_commands = (int)(sizeof(commands) / sizeof(char *));
     const char *suggestion = NULL;
     int min_dist = 999;
-    
+
     for (int i = 0; i < num_commands; i++) {
         int dist = levenshtein(cmd, commands[i]);
         if (dist < min_dist) {
@@ -665,7 +709,7 @@ int vss_run_cli(int argc, char **argv) {
             suggestion = commands[i];
         }
     }
-    
+
     fprintf(stderr, "\033[1;31mUnknown command:\033[0m %s\n", cmd);
     if (min_dist <= 2 && suggestion) {
         fprintf(stderr, "\nDid you mean:\n  \033[1;36m%s\033[0m?\n", suggestion);
