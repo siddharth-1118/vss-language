@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # BUILD JOBS
+  # BUILD JOBS – compile binaries for all platforms
   # ─────────────────────────────────────────────────────────────────────────────
   build:
     name: Build (${{ matrix.label }})
@@ -44,11 +44,11 @@ jobs:
             arch_flag: ""
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Extract version from tag ─────────────────────────────────────────────
+      # ── Extract version from tag ──────────────────────────────────────────────
       - name: Extract version
         id: version
         shell: bash
@@ -57,14 +57,14 @@ jobs:
           echo "VERSION=$TAG" >> "$GITHUB_OUTPUT"
           echo "Building VSS version: $TAG"
 
-      # ── Compiler setup (Linux) ───────────────────────────────────────────────
+      # ── Compiler setup (Linux) ────────────────────────────────────────────────
       - name: Set up GCC (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y build-essential
 
-      # ── Compiler setup (Windows via MSYS2) ──────────────────────────────────
+      # ── Compiler setup (Windows via MSYS2) ───────────────────────────────────
       - name: Set up MSYS2 (Windows)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
@@ -72,7 +72,7 @@ jobs:
           msystem: mingw64
           install: mingw-w64-x86_64-gcc
 
-      # ── Compile: Unix ────────────────────────────────────────────────────────
+      # ── Compile: Unix ─────────────────────────────────────────────────────────
       - name: Compile VSS (Unix)
         if: matrix.os != 'windows-latest'
         run: |
@@ -80,7 +80,7 @@ jobs:
           make clean
           make VERSION=${{ steps.version.outputs.VERSION }} BUILD_TYPE=Release CFLAGS="-std=c11 -Wall -Wextra -pedantic -g ${{ matrix.arch_flag }}"
 
-      # ── Compile: Windows ─────────────────────────────────────────────────────
+      # ── Compile: Windows ──────────────────────────────────────────────────────
       - name: Compile VSS (Windows)
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
@@ -95,7 +95,7 @@ jobs:
             src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c \
             -lws2_32 -o vss.exe
 
-      # ── Smoke test ───────────────────────────────────────────────────────────
+      # ── Smoke test ────────────────────────────────────────────────────────────
       - name: Smoke test binary (Unix)
         if: matrix.os != 'windows-latest'
         run: |
@@ -108,7 +108,7 @@ jobs:
         run: |
           ./vss/vss.exe version
 
-      # ── Assemble release folder ──────────────────────────────────────────────
+      # ── Assemble release folder ───────────────────────────────────────────────
       - name: Assemble release folder (Unix)
         if: matrix.os != 'windows-latest'
         run: |
@@ -145,7 +145,7 @@ jobs:
           Write-Host "=== Release folder contents ==="
           Get-ChildItem -Recurse "$dist"
 
-      # ── Compress archive ─────────────────────────────────────────────────────
+      # ── Compress archive ──────────────────────────────────────────────────────
       - name: Compress archive (Unix tar.gz)
         if: matrix.os != 'windows-latest'
         run: |
@@ -157,7 +157,7 @@ jobs:
         run: |
           Compress-Archive -Path "vss-windows-x64" -DestinationPath "${{ matrix.archive }}"
 
-      # ── Upload artifact ──────────────────────────────────────────────────────
+      # ── Upload artifact ───────────────────────────────────────────────────────
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -166,37 +166,121 @@ jobs:
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # RELEASE JOB – runs only after all builds pass
+  # INSTALLER JOB – builds VSS-x.y.z-Setup.exe using Inno Setup
+  # ─────────────────────────────────────────────────────────────────────────────
+  installer:
+    name: Build Windows Installer
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Extract version ───────────────────────────────────────────────────────
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG" >> "$GITHUB_OUTPUT"
+
+      # ── Download the Windows binary artifact ──────────────────────────────────
+      - name: Download Windows zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vss-windows-x64.zip
+          path: .
+
+      # ── Extract vss.exe from the zip into vss/ ─────────────────────────────
+      - name: Extract vss.exe
+        shell: pwsh
+        run: |
+          Expand-Archive -Path vss-windows-x64.zip -DestinationPath temp_extract -Force
+          Copy-Item temp_extract\vss-windows-x64\vss.exe vss\vss.exe -Force
+          Remove-Item temp_extract -Recurse -Force
+
+      # ── Install Inno Setup via Chocolatey ─────────────────────────────────────
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+
+      # ── Compile the installer ─────────────────────────────────────────────────
+      - name: Compile Inno Setup installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $sourceDir = $env:GITHUB_WORKSPACE
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $iss = "packaging\windows\vss.iss"
+
+          Write-Host "Source dir: $sourceDir"
+          Write-Host "Version:    $version"
+
+          & $iscc /DSOURCEDIR="$sourceDir" /DVERSION="$version" $iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # ── Rename installer to include version in filename ───────────────────────
+      - name: Rename installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $src = "VSS-$version-Setup.exe"
+          if (Test-Path $src) {
+            Write-Host "Installer built: $src"
+          } else {
+            Write-Error "Installer not found: $src"
+            exit 1
+          }
+
+      # ── Upload installer artifact ─────────────────────────────────────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VSS-${{ steps.version.outputs.VERSION }}-Setup.exe
+          path: VSS-${{ steps.version.outputs.VERSION }}-Setup.exe
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RELEASE JOB – runs only after all builds and installer pass
   # ─────────────────────────────────────────────────────────────────────────────
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, installer]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Download all build artifacts ─────────────────────────────────────────
+      # ── Extract version ───────────────────────────────────────────────────────
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG" >> "$GITHUB_OUTPUT"
+
+      # ── Download all artifacts ────────────────────────────────────────────────
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
 
-      # ── List everything to confirm ───────────────────────────────────────────
+      # ── List everything ───────────────────────────────────────────────────────
       - name: List release assets
         run: |
           echo "=== Release assets ==="
           ls -lh release-assets/
 
-      # ── Generate SHA256SUMS ──────────────────────────────────────────────────
+      # ── Generate SHA256SUMS ───────────────────────────────────────────────────
       - name: Generate SHA256SUMS
         run: |
           cd release-assets
-          sha256sum *.tar.gz *.zip > SHA256SUMS
+          sha256sum *.tar.gz *.zip *.exe > SHA256SUMS
           cat SHA256SUMS
 
-      # ── Publish release with auto-generated release notes ────────────────────
+      # ── Publish release ───────────────────────────────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -208,6 +292,7 @@ jobs:
             release-assets/vss-macos-arm64.tar.gz
             release-assets/vss-macos-x64.tar.gz
             release-assets/vss-windows-x64.zip
+            release-assets/VSS-${{ steps.version.outputs.VERSION }}-Setup.exe
             release-assets/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
