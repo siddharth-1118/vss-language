@@ -1,0 +1,9 @@
+note Web Helper Package for VSS
+
+task say_hello_web
+    say "Web server helper loaded successfully!"
+finish
+
+task say_bye_web
+    say "Shutting down web helper."
+finish

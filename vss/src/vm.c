@@ -20,14 +20,15 @@ static char *safe_strdup(const char *s) {
 }
 
 void vss_vm_init(VSS_VM *vm, VSS_Env *global_env) {
-    vm->frame_count = 0;
     vm->stack_top = vm->stack;
+    vm->frame_count = 0;
     vm->trap_count = 0;
     vm->open_upvalues = NULL;
     vm->globals = global_env;
     if (global_env) {
         vss_env_retain(global_env);
     }
+    vm->prev_vm_instance = current_vm_instance;
     current_vm_instance = vm;
 }
 
@@ -39,7 +40,7 @@ void vss_vm_free(VSS_VM *vm) {
         vm->stack_top--;
         vss_value_release(*vm->stack_top);
     }
-    current_vm_instance = NULL;
+    current_vm_instance = vm->prev_vm_instance;
 }
 
 static void push(VSS_Value value) {
