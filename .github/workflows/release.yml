@@ -9,34 +9,58 @@ permissions:
   contents: write
 
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BUILD JOBS
+  # ─────────────────────────────────────────────────────────────────────────────
   build:
-    name: Build and Package
+    name: Build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: vss-linux-amd64.tar.gz
-            asset_content_type: application/gzip
+            label: linux-x64
+            archive: vss-linux-x64.tar.gz
+            exe: vss
+
           - os: macos-latest
-            artifact_name: vss-macos-amd64.tar.gz
-            asset_content_type: application/gzip
+            label: macos-arm64
+            archive: vss-macos-arm64.tar.gz
+            exe: vss
+
+          - os: macos-13
+            label: macos-x64
+            archive: vss-macos-x64.tar.gz
+            exe: vss
+
           - os: windows-latest
-            artifact_name: vss-windows-amd64.zip
-            asset_content_type: application/zip
+            label: windows-x64
+            archive: vss-windows-x64.zip
+            exe: vss.exe
 
     steps:
-      - name: Checkout Repository
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup compilation environments
-      - name: Set up GCC (Ubuntu)
+      # ── Extract version from tag ─────────────────────────────────────────────
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building VSS version: $TAG"
+
+      # ── Compiler setup (Linux) ───────────────────────────────────────────────
+      - name: Set up GCC (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y build-essential
 
+      # ── Compiler setup (Windows via MSYS2) ──────────────────────────────────
       - name: Set up MSYS2 (Windows)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
@@ -44,92 +68,142 @@ jobs:
           msystem: mingw64
           install: mingw-w64-x86_64-gcc
 
-      # Build VSS
-      - name: Build VSS (Unix)
+      # ── Compile: Unix ────────────────────────────────────────────────────────
+      - name: Compile VSS (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           cd vss
           make clean
-          make
+          make VERSION=${{ steps.version.outputs.VERSION }} BUILD_TYPE=Release
 
-      - name: Build VSS (Windows)
+      # ── Compile: Windows ─────────────────────────────────────────────────────
+      - name: Compile VSS (Windows)
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
         run: |
           cd vss
-          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c -lws2_32 -o vss.exe
+          gcc -std=c11 -Wall -Wextra -pedantic \
+            -DVSS_VERSION_STRING=\"${{ steps.version.outputs.VERSION }}\" \
+            -DVSS_BUILD_TYPE=\"Release\" \
+            -Iinclude \
+            src/main.c src/token.c src/lexer.c src/ast.c src/value.c \
+            src/env.c src/parser.c src/interpreter.c src/chunk.c \
+            src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c \
+            -lws2_32 -o vss.exe
 
-      # Package artifacts
-      - name: Package Linux Binary and Debian Package
-        if: matrix.os == 'ubuntu-latest'
+      # ── Smoke test ───────────────────────────────────────────────────────────
+      - name: Smoke test binary (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
-          # Tarball package
-          tar -czvf vss-linux-amd64.tar.gz -C vss vss
-          
-          # Debian package (.deb)
-          VERSION=${GITHUB_REF#refs/tags/v}
-          mkdir -p debian-pkg/DEBIAN
-          mkdir -p debian-pkg/usr/bin
-          cp vss/vss debian-pkg/usr/bin/vss
-          
-          cat <<EOF > debian-pkg/DEBIAN/control
-          Package: vss
-          Version: ${VERSION}
-          Section: devel
-          Priority: optional
-          Architecture: amd64
-          Maintainer: VSS Maintainers <maintainers@vss-language.org>
-          Description: The VSS Programming Language Compiler and VM
-           VSS is a production-ready, high-performance programming language
-           featuring automatic reference counting and a stack-based VM.
-          EOF
-          
-          dpkg-deb --build debian-pkg vss_${VERSION}_amd64.deb
+          ./vss/vss version
+          ./vss/vss examples/hello.vss
 
-      - name: Package macOS Binary
-        if: matrix.os == 'macos-latest'
-        run: |
-          tar -czvf vss-macos-amd64.tar.gz -C vss vss
-
-      - name: Package Windows Binary
+      - name: Smoke test binary (Windows)
         if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
         run: |
-          Compress-Archive -Path vss/vss.exe -DestinationPath vss-windows-amd64.zip
+          ./vss/vss.exe version
 
-      # Upload build outputs
-      - name: Upload Artifacts
+      # ── Assemble release folder ──────────────────────────────────────────────
+      - name: Assemble release folder (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          DIST="vss-${{ matrix.label }}"
+          mkdir -p "$DIST/stdlib" "$DIST/packages" "$DIST/examples"
+
+          cp vss/vss                "$DIST/vss"
+          cp README.md              "$DIST/README.md"     2>/dev/null || echo "No README.md at root"
+          cp LICENSE                "$DIST/LICENSE"       2>/dev/null || echo "No LICENSE"
+          cp CHANGELOG.md           "$DIST/CHANGELOG.md"  2>/dev/null || echo "No CHANGELOG"
+          cp vss/stdlib/*.vss       "$DIST/stdlib/"       2>/dev/null || true
+          cp vss/packages/*.vss     "$DIST/packages/"     2>/dev/null || true
+          cp vss/examples/*.vss     "$DIST/examples/"     2>/dev/null || true
+
+          chmod +x "$DIST/vss"
+          echo "=== Release folder contents ==="
+          find "$DIST" -type f
+
+      - name: Assemble release folder (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $dist = "vss-windows-x64"
+          New-Item -ItemType Directory -Force -Path "$dist/stdlib","$dist/packages","$dist/examples" | Out-Null
+
+          Copy-Item "vss/vss.exe"     "$dist/vss.exe"
+          if (Test-Path "README.md")    { Copy-Item "README.md"   "$dist/README.md" }
+          if (Test-Path "LICENSE")      { Copy-Item "LICENSE"     "$dist/LICENSE" }
+          if (Test-Path "CHANGELOG.md") { Copy-Item "CHANGELOG.md" "$dist/CHANGELOG.md" }
+          Get-ChildItem "vss/stdlib"   -Filter *.vss -ErrorAction SilentlyContinue | Copy-Item -Destination "$dist/stdlib/"
+          Get-ChildItem "vss/packages" -Filter *.vss -ErrorAction SilentlyContinue | Copy-Item -Destination "$dist/packages/"
+          Get-ChildItem "vss/examples" -Filter *.vss -ErrorAction SilentlyContinue | Copy-Item -Destination "$dist/examples/"
+
+          Write-Host "=== Release folder contents ==="
+          Get-ChildItem -Recurse "$dist"
+
+      # ── Compress archive ─────────────────────────────────────────────────────
+      - name: Compress archive (Unix tar.gz)
+        if: matrix.os != 'windows-latest'
+        run: |
+          tar -czf "${{ matrix.archive }}" "vss-${{ matrix.label }}"
+
+      - name: Compress archive (Windows zip)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "vss-windows-x64" -DestinationPath "${{ matrix.archive }}"
+
+      # ── Upload artifact ──────────────────────────────────────────────────────
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
-          path: |
-            *.tar.gz
-            *.zip
-            *.deb
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
           if-no-files-found: error
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RELEASE JOB – runs only after all builds pass
+  # ─────────────────────────────────────────────────────────────────────────────
   release:
-    name: Create GitHub Release
+    name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download All Artifacts
+      # ── Download all build artifacts ─────────────────────────────────────────
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: release-assets
           merge-multiple: true
 
+      # ── List everything to confirm ───────────────────────────────────────────
+      - name: List release assets
+        run: |
+          echo "=== Release assets ==="
+          ls -lh release-assets/
+
+      # ── Generate SHA256SUMS ──────────────────────────────────────────────────
+      - name: Generate SHA256SUMS
+        run: |
+          cd release-assets
+          sha256sum *.tar.gz *.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      # ── Publish release with auto-generated release notes ────────────────────
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/*.tar.gz
-            artifacts/*.zip
-            artifacts/*.deb
+          generate_release_notes: true
           draft: false
           prerelease: false
+          files: |
+            release-assets/vss-linux-x64.tar.gz
+            release-assets/vss-macos-arm64.tar.gz
+            release-assets/vss-macos-x64.tar.gz
+            release-assets/vss-windows-x64.zip
+            release-assets/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

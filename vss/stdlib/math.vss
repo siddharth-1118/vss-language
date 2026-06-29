@@ -1,0 +1,63 @@
+note VSS Standard Library - Math Module
+note Provides common mathematical operations
+
+keep pi becomes 3.14159265358979
+keep e becomes 2.71828182845904
+keep tau becomes 6.28318530717958
+
+task abs needs n
+    when n below 0
+        send 0 - n
+    otherwise
+        send n
+    finish
+finish
+
+task max needs a b
+    when a above b
+        send a
+    otherwise
+        send b
+    finish
+finish
+
+task min needs a b
+    when a below b
+        send a
+    otherwise
+        send b
+    finish
+finish
+
+task clamp needs val lo hi
+    send min with (max with val lo) hi
+finish
+
+task pow needs base exp
+    make result becomes 1
+    make i becomes 0
+    repeat i through 1 to exp
+        result becomes result * base
+    finish
+    send result
+finish
+
+task factorial needs n
+    when n same_as 0
+        send 1
+    otherwise
+        send n * (factorial with n - 1)
+    finish
+finish
+
+task is_even needs n
+    send (n - (n / 2) * 2) same_as 0
+finish
+
+task is_odd needs n
+    send not (is_even with n)
+finish
+
+task floor_div needs a b
+    send a / b
+finish

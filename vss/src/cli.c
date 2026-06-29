@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "platform.h"
+#include "version.h"
 #include "cli.h"
 #include "lexer.h"
 #include "parser.h"
@@ -456,7 +457,10 @@ static int doctor_check(void) {
 }
 
 static void print_version(void) {
-    printf("\033[1;35mVSS Version:\033[0m v1.0.0 (Bytecode VSS_VM Engine)\n");
+    printf("\033[1;35mVSS Programming Language\033[0m\n");
+    printf("  Version:  \033[1;32m%s\033[0m\n", VSS_VERSION_STRING);
+    printf("  Build:    %s\n", VSS_BUILD_TYPE);
+    printf("  Platform: %s\n", VSS_PLATFORM_NAME);
 }
 
 static void print_help(void) {
