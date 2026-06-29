@@ -37,11 +37,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential
 
-      - name: Set up MinGW (Windows)
+      - name: Set up GCC (Windows)
         if: matrix.os == 'windows-latest'
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+        run: |
+          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
 
       # Build VSS
       - name: Build VSS (Unix)
