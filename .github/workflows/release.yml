@@ -37,6 +37,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential
 
+      - name: Set up MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          mingw64: true
+          install: mingw-w64-x86_64-gcc
+
       # Build VSS
       - name: Build VSS (Unix)
         if: matrix.os != 'windows-latest'
@@ -47,9 +54,10 @@ jobs:
 
       - name: Build VSS (Windows)
         if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
         run: |
           cd vss
-          C:\msys64\mingw64\bin\gcc.exe -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
+          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
 
       # Package artifacts
       - name: Package Linux Binary and Debian Package
