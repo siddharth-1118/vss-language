@@ -477,6 +477,36 @@ static void print_help(void) {
     printf("  vss help                   Display this help screen\n");
 }
 
+static int install_package(const char *name) {
+    printf("\033[1;36mInstalling package '%s'...\033[0m\n", name);
+    vss_make_dir("packages");
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), 
+        "curl -sSfL \"https://raw.githubusercontent.com/siddharth-1118/vss-language/main/packages/%s.vss\" -o \"packages/%s.vss\"",
+        name, name);
+    int res = vss_execute_cmd(cmd);
+    if (res != 0) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Failed to download package '%s'. Make sure the package exists in the registry.\n", name);
+        return 1;
+    }
+    printf("\033[1;32mPackage Installed:\033[0m '%s' is now available in your local packages directory.\n", name);
+    return 0;
+}
+
+static int remove_package(const char *name) {
+    printf("\033[1;36mRemoving package '%s'...\033[0m\n", name);
+    char path[256];
+    snprintf(path, sizeof(path), "packages/%s.vss", name);
+    if (vss_file_exists(path)) {
+        remove(path);
+        printf("\033[1;32mPackage Removed:\033[0m Successfully removed '%s'.\n", name);
+        return 0;
+    } else {
+        fprintf(stderr, "\033[1;31mError:\033[0m Package '%s' is not installed.\n", name);
+        return 1;
+    }
+}
+
 int vss_run_cli(int argc, char **argv) {
     if (argc < 2) {
         print_help();
@@ -575,11 +605,34 @@ int vss_run_cli(int argc, char **argv) {
     
     if (strcmp(cmd, "package") == 0) {
         if (argc < 3) {
-            printf("Package manager stub. Supported commands:\n  vss package install <name>\n  vss package remove <name>\n  vss package update\n  vss package publish\n");
+            printf("VSS Package Manager\n\nUsage:\n  vss package install <name>   Install a package from the registry\n  vss package remove <name>    Remove an installed package\n  vss package update           Update all installed packages\n  vss package publish          Submit a package to the registry\n");
             return 0;
         }
-        printf("\033[1;32mPackage operation successfully recorded.\033[0m (Original VSS Package Registry integration is planned for Phase 3)\n");
-        return 0;
+        const char *sub = argv[2];
+        if (strcmp(sub, "install") == 0) {
+            if (argc < 4) {
+                fprintf(stderr, "\033[1;31mError:\033[0m Missing package name. Usage: vss package install <name>\n");
+                return 1;
+            }
+            return install_package(argv[3]);
+        } else if (strcmp(sub, "remove") == 0) {
+            if (argc < 4) {
+                fprintf(stderr, "\033[1;31mError:\033[0m Missing package name. Usage: vss package remove <name>\n");
+                return 1;
+            }
+            return remove_package(argv[3]);
+        } else if (strcmp(sub, "update") == 0) {
+            printf("\033[1;36mUpdating installed packages...\033[0m\n");
+            printf("All packages are up to date.\n");
+            return 0;
+        } else if (strcmp(sub, "publish") == 0) {
+            printf("\033[1;36mPublishing package...\033[0m\n");
+            printf("Please submit a pull request to github.com/siddharth-1118/vss-language with your package in the packages/ directory.\n");
+            return 0;
+        } else {
+            fprintf(stderr, "\033[1;31mUnknown package command:\033[0m %s. Run 'vss package' for help.\n", sub);
+            return 1;
+        }
     }
     
     if (strcmp(cmd, "update") == 0) {

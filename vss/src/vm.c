@@ -655,6 +655,10 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 snprintf(filepath, sizeof(filepath), "%s.vss", module_name);
                 FILE *f = fopen(filepath, "rb");
                 if (!f) {
+                    snprintf(filepath, sizeof(filepath), "packages/%s.vss", module_name);
+                    f = fopen(filepath, "rb");
+                }
+                if (!f) {
                     snprintf(filepath, sizeof(filepath), "examples/%s.vss", module_name);
                     f = fopen(filepath, "rb");
                 }
