@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <unistd.h>
+#include "platform.h"
 #include "cli.h"
 #include "lexer.h"
 #include "parser.h"
@@ -275,12 +273,7 @@ static int build_file(const char *path) {
 }
 
 static int create_project(const char *name) {
-#ifdef _WIN32
-    int mkdir_err = mkdir(name);
-#else
-    int mkdir_err = mkdir(name, 0777);
-#endif
-    if (mkdir_err != 0) {
+    if (!vss_make_dir(name)) {
         fprintf(stderr, "\033[1;31mError:\033[0m Could not create directory '%s'.\n", name);
         return 1;
     }
@@ -423,7 +416,7 @@ static int docs_generator(const char *path) {
 }
 
 static int doctor_check(void) {
-    printf("\033[1;36mVSS Installation Diagnostics:\033[0m\n");
+    printf("\033[1;36mVSS Diagnostics:\033[0m\n");
     printf("  OS Target: %s\n", 
 #ifdef _WIN32
         "Windows"
@@ -436,21 +429,26 @@ static int doctor_check(void) {
     printf("  Binary Path: %s\n", "Available globally via PATH");
     
     // Check if gcc is available
-    int gcc_avail = system("gcc --version >/dev/null 2>&1");
+    int gcc_avail = vss_execute_cmd(
+#ifdef _WIN32
+        "gcc --version >nul 2>&1"
+#else
+        "gcc --version >/dev/null 2>&1"
+#endif
+    );
     printf("  C Compiler (gcc): %s\n", gcc_avail == 0 ? "Installed" : "Not Found (Optional for VM execution, needed for native compiler)");
     
     // Check if vss path exists
-    char *home = getenv("USERPROFILE");
-    if (!home) home = getenv("HOME");
+    char *home = vss_get_home_dir();
     if (home) {
         char path_vss[512];
-        snprintf(path_vss, sizeof(path_vss), "%s/.vss", home);
-        struct stat st;
-        if (stat(path_vss, &st) == 0 && S_ISDIR(st.st_mode)) {
+        snprintf(path_vss, sizeof(path_vss), "%s%s.vss", home, VSS_PATH_SEP_STR);
+        if (vss_dir_exists(path_vss)) {
             printf("  VSS Local Folder: Installed (~/.vss)\n");
         } else {
             printf("  VSS Local Folder: Not found (~/.vss)\n");
         }
+        free(home);
     }
     
     printf("\033[1;32mDiagnostics Complete. All system parameters nominal.\033[0m\n");
@@ -527,13 +525,13 @@ int run_cli(int argc, char **argv) {
     
     if (strcmp(cmd, "test") == 0) {
         // Runs default test_suite.vss if it exists
-        if (access("examples/test_suite.vss", F_OK) == 0) {
+        if (vss_file_exists("examples/test_suite.vss")) {
             return run_file("examples/test_suite.vss");
-        } else if (access("test_suite.vss", F_OK) == 0) {
+        } else if (vss_file_exists("test_suite.vss")) {
             return run_file("test_suite.vss");
         } else {
             fprintf(stderr, "\033[1;33mWarning:\033[0m No default 'test_suite.vss' found. Running Hello world test.\n");
-            if (access("examples/hello.vss", F_OK) == 0) {
+            if (vss_file_exists("examples/hello.vss")) {
                 return run_file("examples/hello.vss");
             }
         }
@@ -570,20 +568,7 @@ int run_cli(int argc, char **argv) {
     }
     
     if (strcmp(cmd, "clean") == 0) {
-        // Remove .vssc files in current folder
-        DIR *d;
-        struct dirent *dir;
-        d = opendir(".");
-        if (d) {
-            while ((dir = readdir(d)) != NULL) {
-                char *ext = strrchr(dir->d_name, '.');
-                if (ext && strcmp(ext, ".vssc") == 0) {
-                    remove(dir->d_name);
-                    printf("  Removed: %s\n", dir->d_name);
-                }
-            }
-            closedir(d);
-        }
+        vss_list_dir_clean_vssc(".");
         printf("\033[1;32mClean complete.\033[0m\n");
         return 0;
     }
@@ -604,7 +589,7 @@ int run_cli(int argc, char **argv) {
     }
     
     // Fallback: Check if file exists, execute directly
-    if (access(cmd, F_OK) == 0) {
+    if (vss_file_exists(cmd)) {
         return run_file(cmd);
     }
     

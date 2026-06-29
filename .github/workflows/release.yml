@@ -57,7 +57,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd vss
-          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
+          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c -lws2_32 -o vss.exe
 
       # Package artifacts
       - name: Package Linux Binary and Debian Package
