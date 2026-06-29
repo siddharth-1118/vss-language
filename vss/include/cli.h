@@ -3,10 +3,10 @@
 
 #include "object.h"
 
-int run_cli(int argc, char **argv);
+int vss_run_cli(int argc, char **argv);
 
 // Serialization helpers
-bool serialize_function(ObjFunction *func, FILE *out);
-ObjFunction *deserialize_function(FILE *in);
+bool vss_serialize_function(VSS_ObjFunction *func, FILE *out);
+VSS_ObjFunction *vss_deserialize_function(FILE *in);
 
 #endif

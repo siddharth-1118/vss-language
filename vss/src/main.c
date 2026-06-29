@@ -53,7 +53,7 @@ static void start_server(int port) {
         return;
     }
 
-    VssSocket server_fd = vss_socket_create();
+    VSS_Socket server_fd = vss_socket_create();
     if (server_fd == VSS_INVALID_SOCKET) {
         perror("socket failed");
         vss_network_cleanup();
@@ -80,7 +80,7 @@ static void start_server(int port) {
     vss_launch_browser(port);
     
     while (1) {
-        VssSocket client_fd = vss_socket_accept(server_fd);
+        VSS_Socket client_fd = vss_socket_accept(server_fd);
         if (client_fd == VSS_INVALID_SOCKET) continue;
         
         char buffer[2048];
@@ -114,25 +114,25 @@ static void start_server(int port) {
                     if (temp_f) {
                         char *source = read_file_text(filename);
                         if (source) {
-                            Lexer lexer;
-                            lexer_init(&lexer, source);
-                            Parser parser;
-                            parser_init(&parser, &lexer);
-                            Block ast = parse_program(&parser);
+                            VSS_Lexer lexer;
+                            vss_lexer_init(&lexer, source);
+                            VSS_Parser parser;
+                            vss_parser_init(&parser, &lexer);
+                            VSS_Block ast = vss_parse_program(&parser);
                             if (!parser.had_error) {
-                                ObjFunction *main_func = compile_program(ast);
-                                Env *global_env = env_new(NULL);
-                                register_builtins(global_env);
-                                bool run_success = vm_run(main_func, global_env);
+                                VSS_ObjFunction *main_func = vss_compile_program(ast);
+                                VSS_Env *global_env = vss_env_new(NULL);
+                                vss_register_builtins(global_env);
+                                bool run_success = vss_vm_run(main_func, global_env);
                                 if (!run_success) {
-                                    printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>VM Runtime Error</div>");
+                                    printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>VSS_VM Runtime Error</div>");
                                 }
-                                env_release(global_env);
-                                function_release(main_func);
+                                vss_env_release(global_env);
+                                vss_function_release(main_func);
                             } else {
-                                printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>Parser Syntax Error</div>");
+                                printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>VSS_Parser Syntax Error</div>");
                             }
-                            block_free(ast);
+                            vss_block_free(ast);
                             free(source);
                         }
                         fflush(stdout);
@@ -185,5 +185,5 @@ int main(int argc, char **argv) {
         start_server(8080);
         return 0;
     }
-    return run_cli(argc, argv);
+    return vss_run_cli(argc, argv);
 }

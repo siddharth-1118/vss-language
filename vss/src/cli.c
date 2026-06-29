@@ -7,7 +7,7 @@
 #include "parser.h"
 #include "compiler.h"
 #include "vm.h"
-#include "interpreter.h" // for register_builtins
+#include "interpreter.h" // for vss_register_builtins
 
 // Levenshtein distance helper
 static int min3(int a, int b, int c) {
@@ -37,53 +37,53 @@ static int levenshtein(const char *s, const char *t) {
 }
 
 // Serialization implementations
-bool serialize_value(Value val, FILE *out) {
+bool vss_serialize_value(VSS_Value val, FILE *out) {
     uint8_t type = (uint8_t)val.type;
     fwrite(&type, 1, 1, out);
-    if (val.type == VAL_NUMBER) {
+    if (val.type == VSS_VAL_NUMBER) {
         fwrite(&val.as.number, sizeof(double), 1, out);
-    } else if (val.type == VAL_STRING) {
+    } else if (val.type == VSS_VAL_STRING) {
         size_t len = strlen(val.as.string->chars);
         fwrite(&len, sizeof(size_t), 1, out);
         fwrite(val.as.string->chars, 1, len, out);
-    } else if (val.type == VAL_BOOL) {
+    } else if (val.type == VSS_VAL_BOOL) {
         uint8_t b = val.as.boolean ? 1 : 0;
         fwrite(&b, 1, 1, out);
-    } else if (val.type == VAL_FUNCTION) {
-        serialize_function(val.as.function, out);
+    } else if (val.type == VSS_VAL_FUNCTION) {
+        vss_serialize_function(val.as.function, out);
     }
     return true;
 }
 
-Value deserialize_value(FILE *in) {
+VSS_Value vss_deserialize_value(FILE *in) {
     uint8_t type_val;
-    if (fread(&type_val, 1, 1, in) != 1) return value_new_empty();
-    ValueType type = (ValueType)type_val;
-    if (type == VAL_NUMBER) {
+    if (fread(&type_val, 1, 1, in) != 1) return vss_value_new_empty();
+    VSS_ValueType type = (VSS_ValueType)type_val;
+    if (type == VSS_VAL_NUMBER) {
         double d;
         fread(&d, sizeof(double), 1, in);
-        return value_new_number(d);
-    } else if (type == VAL_STRING) {
+        return vss_value_new_number(d);
+    } else if (type == VSS_VAL_STRING) {
         size_t len;
         fread(&len, sizeof(size_t), 1, in);
         char *str = malloc(len + 1);
         fread(str, 1, len, in);
         str[len] = '\0';
-        Value v = value_new_string(str);
+        VSS_Value v = vss_value_new_string(str);
         free(str);
         return v;
-    } else if (type == VAL_BOOL) {
+    } else if (type == VSS_VAL_BOOL) {
         uint8_t b;
         fread(&b, 1, 1, in);
-        return value_new_bool(b != 0);
-    } else if (type == VAL_FUNCTION) {
-        ObjFunction *func = deserialize_function(in);
-        return value_new_function(func);
+        return vss_value_new_bool(b != 0);
+    } else if (type == VSS_VAL_FUNCTION) {
+        VSS_ObjFunction *func = vss_deserialize_function(in);
+        return vss_value_new_function(func);
     }
-    return value_new_empty();
+    return vss_value_new_empty();
 }
 
-bool serialize_function(ObjFunction *func, FILE *out) {
+bool vss_serialize_function(VSS_ObjFunction *func, FILE *out) {
     size_t name_len = func->name ? strlen(func->name) : 0;
     fwrite(&name_len, sizeof(size_t), 1, out);
     if (name_len > 0) {
@@ -101,12 +101,12 @@ bool serialize_function(ObjFunction *func, FILE *out) {
     
     fwrite(&func->chunk.const_count, sizeof(int), 1, out);
     for (int i = 0; i < func->chunk.const_count; i++) {
-        serialize_value(func->chunk.constants[i], out);
+        vss_serialize_value(func->chunk.constants[i], out);
     }
     return true;
 }
 
-ObjFunction *deserialize_function(FILE *in) {
+VSS_ObjFunction *vss_deserialize_function(FILE *in) {
     size_t name_len;
     if (fread(&name_len, sizeof(size_t), 1, in) != 1) return NULL;
     char *name = NULL;
@@ -121,7 +121,7 @@ ObjFunction *deserialize_function(FILE *in) {
     fread(&param_count, sizeof(size_t), 1, in);
     fread(&upvalue_count, sizeof(int), 1, in);
     
-    ObjFunction *func = function_new(name ? name : "", param_count);
+    VSS_ObjFunction *func = vss_function_new(name ? name : "", param_count);
     free(name);
     func->upvalue_count = upvalue_count;
     
@@ -139,9 +139,9 @@ ObjFunction *deserialize_function(FILE *in) {
     int const_count;
     fread(&const_count, sizeof(int), 1, in);
     for (int i = 0; i < const_count; i++) {
-        Value val = deserialize_value(in);
-        chunk_add_constant(&func->chunk, val);
-        value_release(val);
+        VSS_Value val = vss_deserialize_value(in);
+        vss_chunk_add_constant(&func->chunk, val);
+        vss_value_release(val);
     }
     
     return func;
@@ -172,11 +172,11 @@ static int run_file(const char *path) {
     size_t bytes_read = fread(magic, 1, 4, f);
     rewind(f);
     
-    ObjFunction *main_func = NULL;
+    VSS_ObjFunction *main_func = NULL;
     if (bytes_read == 4 && memcmp(magic, "VSSC", 4) == 0) {
         // Run pre-compiled bytecode file
         fread(magic, 1, 4, f); // discard magic
-        main_func = deserialize_function(f);
+        main_func = vss_deserialize_function(f);
         fclose(f);
     } else {
         fclose(f);
@@ -187,20 +187,20 @@ static int run_file(const char *path) {
             return 1;
         }
         
-        Lexer lexer;
-        lexer_init(&lexer, source);
-        Parser parser;
-        parser_init(&parser, &lexer);
-        Block ast = parse_program(&parser);
+        VSS_Lexer lexer;
+        vss_lexer_init(&lexer, source);
+        VSS_Parser parser;
+        vss_parser_init(&parser, &lexer);
+        VSS_Block ast = vss_parse_program(&parser);
         free(source);
         
         if (parser.had_error) {
-            block_free(ast);
+            vss_block_free(ast);
             return 1;
         }
         
-        main_func = compile_program(ast);
-        block_free(ast);
+        main_func = vss_compile_program(ast);
+        vss_block_free(ast);
     }
     
     if (!main_func) {
@@ -208,13 +208,13 @@ static int run_file(const char *path) {
         return 1;
     }
     
-    Env *global_env = env_new(NULL);
-    register_builtins(global_env);
+    VSS_Env *global_env = vss_env_new(NULL);
+    vss_register_builtins(global_env);
     
-    bool run_success = vm_run(main_func, global_env);
+    bool run_success = vss_vm_run(main_func, global_env);
     
-    env_release(global_env);
-    function_release(main_func);
+    vss_env_release(global_env);
+    vss_function_release(main_func);
     
     return run_success ? 0 : 1;
 }
@@ -226,20 +226,20 @@ static int build_file(const char *path) {
         return 1;
     }
     
-    Lexer lexer;
-    lexer_init(&lexer, source);
-    Parser parser;
-    parser_init(&parser, &lexer);
-    Block ast = parse_program(&parser);
+    VSS_Lexer lexer;
+    vss_lexer_init(&lexer, source);
+    VSS_Parser parser;
+    vss_parser_init(&parser, &lexer);
+    VSS_Block ast = vss_parse_program(&parser);
     free(source);
     
     if (parser.had_error) {
-        block_free(ast);
+        vss_block_free(ast);
         return 1;
     }
     
-    ObjFunction *main_func = compile_program(ast);
-    block_free(ast);
+    VSS_ObjFunction *main_func = vss_compile_program(ast);
+    vss_block_free(ast);
     
     if (!main_func) {
         fprintf(stderr, "\033[1;31mError:\033[0m Compilation failed.\n");
@@ -259,16 +259,16 @@ static int build_file(const char *path) {
     FILE *out = fopen(out_path, "wb");
     if (!out) {
         fprintf(stderr, "\033[1;31mError:\033[0m Could not open output file '%s'.\n", out_path);
-        function_release(main_func);
+        vss_function_release(main_func);
         return 1;
     }
     
     fwrite("VSSC", 1, 4, out);
-    serialize_function(main_func, out);
+    vss_serialize_function(main_func, out);
     fclose(out);
     
     printf("\033[1;32mBuild Success:\033[0m Compiled to %s\n", out_path);
-    function_release(main_func);
+    vss_function_release(main_func);
     return 0;
 }
 
@@ -436,7 +436,7 @@ static int doctor_check(void) {
         "gcc --version >/dev/null 2>&1"
 #endif
     );
-    printf("  C Compiler (gcc): %s\n", gcc_avail == 0 ? "Installed" : "Not Found (Optional for VM execution, needed for native compiler)");
+    printf("  C Compiler (gcc): %s\n", gcc_avail == 0 ? "Installed" : "Not Found (Optional for VSS_VM execution, needed for native compiler)");
     
     // Check if vss path exists
     char *home = vss_get_home_dir();
@@ -456,7 +456,7 @@ static int doctor_check(void) {
 }
 
 static void print_version(void) {
-    printf("\033[1;35mVSS Version:\033[0m v1.0.0 (Bytecode VM Engine)\n");
+    printf("\033[1;35mVSS Version:\033[0m v1.0.0 (Bytecode VSS_VM Engine)\n");
 }
 
 static void print_help(void) {
@@ -477,7 +477,7 @@ static void print_help(void) {
     printf("  vss help                   Display this help screen\n");
 }
 
-int run_cli(int argc, char **argv) {
+int vss_run_cli(int argc, char **argv) {
     if (argc < 2) {
         print_help();
         return 0;

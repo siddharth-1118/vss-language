@@ -5,14 +5,14 @@
 #include "ast.h"
 
 typedef struct {
-    Lexer *lexer;
-    Token current;
-    Token previous;
+    VSS_Lexer *lexer;
+    VSS_Token current;
+    VSS_Token previous;
     bool had_error;
     bool panic_mode;
-} Parser;
+} VSS_Parser;
 
-void parser_init(Parser *parser, Lexer *lexer);
-Block parse_program(Parser *parser);
+void vss_parser_init(VSS_Parser *parser, VSS_Lexer *lexer);
+VSS_Block vss_parse_program(VSS_Parser *parser);
 
 #endif

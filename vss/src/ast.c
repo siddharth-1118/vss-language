@@ -13,10 +13,10 @@ static char *safe_strdup(const char *s) {
     return dup;
 }
 
-Expr *expr_new_number(double value, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_number(double value, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_NUMBER;
+        expr->kind = VSS_EXPR_NUMBER;
         expr->line = line;
         expr->column = column;
         expr->as.number = value;
@@ -24,10 +24,10 @@ Expr *expr_new_number(double value, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_string(const char *value, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_string(const char *value, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_STRING;
+        expr->kind = VSS_EXPR_STRING;
         expr->line = line;
         expr->column = column;
         expr->as.string = safe_strdup(value);
@@ -35,10 +35,10 @@ Expr *expr_new_string(const char *value, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_bool(bool value, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_bool(bool value, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_BOOL;
+        expr->kind = VSS_EXPR_BOOL;
         expr->line = line;
         expr->column = column;
         expr->as.boolean = value;
@@ -46,20 +46,20 @@ Expr *expr_new_bool(bool value, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_empty(int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_empty(int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_EMPTY;
+        expr->kind = VSS_EXPR_EMPTY;
         expr->line = line;
         expr->column = column;
     }
     return expr;
 }
 
-Expr *expr_new_name(const char *name, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_name(const char *name, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_NAME;
+        expr->kind = VSS_EXPR_NAME;
         expr->line = line;
         expr->column = column;
         expr->as.name = safe_strdup(name);
@@ -67,10 +67,10 @@ Expr *expr_new_name(const char *name, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_binary(TokenType op, Expr *left, Expr *right, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_binary(VSS_TokenType op, VSS_Expr *left, VSS_Expr *right, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_BINARY;
+        expr->kind = VSS_EXPR_BINARY;
         expr->line = line;
         expr->column = column;
         expr->as.binary.op = op;
@@ -80,10 +80,10 @@ Expr *expr_new_binary(TokenType op, Expr *left, Expr *right, int line, int colum
     return expr;
 }
 
-Expr *expr_new_unary(TokenType op, Expr *operand, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_unary(VSS_TokenType op, VSS_Expr *operand, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_UNARY;
+        expr->kind = VSS_EXPR_UNARY;
         expr->line = line;
         expr->column = column;
         expr->as.unary.op = op;
@@ -92,10 +92,10 @@ Expr *expr_new_unary(TokenType op, Expr *operand, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_list(Expr **elements, size_t count, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_list(VSS_Expr **elements, size_t count, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_LIST;
+        expr->kind = VSS_EXPR_LIST;
         expr->line = line;
         expr->column = column;
         expr->as.list.elements = elements;
@@ -104,10 +104,10 @@ Expr *expr_new_list(Expr **elements, size_t count, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_map(char **keys, Expr **values, size_t count, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_map(char **keys, VSS_Expr **values, size_t count, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_MAP;
+        expr->kind = VSS_EXPR_MAP;
         expr->line = line;
         expr->column = column;
         expr->as.map.keys = keys;
@@ -117,10 +117,10 @@ Expr *expr_new_map(char **keys, Expr **values, size_t count, int line, int colum
     return expr;
 }
 
-Expr *expr_new_item_access(Expr *list, Expr *index, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_item_access(VSS_Expr *list, VSS_Expr *index, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_ITEM_ACCESS;
+        expr->kind = VSS_EXPR_ITEM_ACCESS;
         expr->line = line;
         expr->column = column;
         expr->as.item_access.list = list;
@@ -129,10 +129,10 @@ Expr *expr_new_item_access(Expr *list, Expr *index, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_field_access(Expr *map, Expr *field, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_field_access(VSS_Expr *map, VSS_Expr *field, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_FIELD_ACCESS;
+        expr->kind = VSS_EXPR_FIELD_ACCESS;
         expr->line = line;
         expr->column = column;
         expr->as.field_access.map = map;
@@ -141,10 +141,10 @@ Expr *expr_new_field_access(Expr *map, Expr *field, int line, int column) {
     return expr;
 }
 
-Expr *expr_new_call(Expr *callee, Expr **args, size_t count, int line, int column) {
-    Expr *expr = malloc(sizeof(Expr));
+VSS_Expr *vss_expr_new_call(VSS_Expr *callee, VSS_Expr **args, size_t count, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
-        expr->kind = EXPR_CALL;
+        expr->kind = VSS_EXPR_CALL;
         expr->line = line;
         expr->column = column;
         expr->as.call.callee = callee;
@@ -154,52 +154,52 @@ Expr *expr_new_call(Expr *callee, Expr **args, size_t count, int line, int colum
     return expr;
 }
 
-void expr_free(Expr *expr) {
+void vss_expr_free(VSS_Expr *expr) {
     if (!expr) return;
     switch (expr->kind) {
-        case EXPR_NUMBER:
-        case EXPR_BOOL:
-        case EXPR_EMPTY:
+        case VSS_EXPR_NUMBER:
+        case VSS_EXPR_BOOL:
+        case VSS_EXPR_EMPTY:
             break;
-        case EXPR_STRING:
+        case VSS_EXPR_STRING:
             free(expr->as.string);
             break;
-        case EXPR_NAME:
+        case VSS_EXPR_NAME:
             free(expr->as.name);
             break;
-        case EXPR_BINARY:
-            expr_free(expr->as.binary.left);
-            expr_free(expr->as.binary.right);
+        case VSS_EXPR_BINARY:
+            vss_expr_free(expr->as.binary.left);
+            vss_expr_free(expr->as.binary.right);
             break;
-        case EXPR_UNARY:
-            expr_free(expr->as.unary.operand);
+        case VSS_EXPR_UNARY:
+            vss_expr_free(expr->as.unary.operand);
             break;
-        case EXPR_LIST:
+        case VSS_EXPR_LIST:
             for (size_t i = 0; i < expr->as.list.count; i++) {
-                expr_free(expr->as.list.elements[i]);
+                vss_expr_free(expr->as.list.elements[i]);
             }
             free(expr->as.list.elements);
             break;
-        case EXPR_MAP:
+        case VSS_EXPR_MAP:
             for (size_t i = 0; i < expr->as.map.count; i++) {
                 free(expr->as.map.keys[i]);
-                expr_free(expr->as.map.values[i]);
+                vss_expr_free(expr->as.map.values[i]);
             }
             free(expr->as.map.keys);
             free(expr->as.map.values);
             break;
-        case EXPR_ITEM_ACCESS:
-            expr_free(expr->as.item_access.list);
-            expr_free(expr->as.item_access.index);
+        case VSS_EXPR_ITEM_ACCESS:
+            vss_expr_free(expr->as.item_access.list);
+            vss_expr_free(expr->as.item_access.index);
             break;
-        case EXPR_FIELD_ACCESS:
-            expr_free(expr->as.field_access.map);
-            expr_free(expr->as.field_access.field);
+        case VSS_EXPR_FIELD_ACCESS:
+            vss_expr_free(expr->as.field_access.map);
+            vss_expr_free(expr->as.field_access.field);
             break;
-        case EXPR_CALL:
-            expr_free(expr->as.call.callee);
+        case VSS_EXPR_CALL:
+            vss_expr_free(expr->as.call.callee);
             for (size_t i = 0; i < expr->as.call.count; i++) {
-                expr_free(expr->as.call.args[i]);
+                vss_expr_free(expr->as.call.args[i]);
             }
             free(expr->as.call.args);
             break;
@@ -207,10 +207,10 @@ void expr_free(Expr *expr) {
     free(expr);
 }
 
-Stmt *stmt_new_make(const char *name, Expr *initializer, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_make(const char *name, VSS_Expr *initializer, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_MAKE;
+        stmt->kind = VSS_STMT_MAKE;
         stmt->line = line;
         stmt->column = column;
         stmt->as.make.name = safe_strdup(name);
@@ -219,10 +219,10 @@ Stmt *stmt_new_make(const char *name, Expr *initializer, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_keep(const char *name, Expr *initializer, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_keep(const char *name, VSS_Expr *initializer, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_KEEP;
+        stmt->kind = VSS_STMT_KEEP;
         stmt->line = line;
         stmt->column = column;
         stmt->as.keep.name = safe_strdup(name);
@@ -231,10 +231,10 @@ Stmt *stmt_new_keep(const char *name, Expr *initializer, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_assign(const char *name, Expr *value, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_assign(const char *name, VSS_Expr *value, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_ASSIGN;
+        stmt->kind = VSS_STMT_ASSIGN;
         stmt->line = line;
         stmt->column = column;
         stmt->as.assign.name = safe_strdup(name);
@@ -243,10 +243,10 @@ Stmt *stmt_new_assign(const char *name, Expr *value, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_say(Expr *expression, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_say(VSS_Expr *expression, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_SAY;
+        stmt->kind = VSS_STMT_SAY;
         stmt->line = line;
         stmt->column = column;
         stmt->as.say.expression = expression;
@@ -254,10 +254,10 @@ Stmt *stmt_new_say(Expr *expression, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_when(WhenBranch *branches, size_t branch_count, Block otherwise_branch, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_when(VSS_WhenBranch *branches, size_t branch_count, VSS_Block otherwise_branch, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_WHEN;
+        stmt->kind = VSS_STMT_WHEN;
         stmt->line = line;
         stmt->column = column;
         stmt->as.when.branches = branches;
@@ -267,10 +267,10 @@ Stmt *stmt_new_when(WhenBranch *branches, size_t branch_count, Block otherwise_b
     return stmt;
 }
 
-Stmt *stmt_new_repeat_count(Expr *count_expr, Block body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_repeat_count(VSS_Expr *count_expr, VSS_Block body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_REPEAT_COUNT;
+        stmt->kind = VSS_STMT_REPEAT_COUNT;
         stmt->line = line;
         stmt->column = column;
         stmt->as.repeat_count.count_expr = count_expr;
@@ -279,10 +279,10 @@ Stmt *stmt_new_repeat_count(Expr *count_expr, Block body, int line, int column) 
     return stmt;
 }
 
-Stmt *stmt_new_repeat_range(const char *var_name, Expr *start, Expr *end, Block body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_repeat_range(const char *var_name, VSS_Expr *start, VSS_Expr *end, VSS_Block body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_REPEAT_RANGE;
+        stmt->kind = VSS_STMT_REPEAT_RANGE;
         stmt->line = line;
         stmt->column = column;
         stmt->as.repeat_range.var_name = safe_strdup(var_name);
@@ -293,10 +293,10 @@ Stmt *stmt_new_repeat_range(const char *var_name, Expr *start, Expr *end, Block 
     return stmt;
 }
 
-Stmt *stmt_new_repeat_each(const char *var_name, Expr *collection, Block body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_repeat_each(const char *var_name, VSS_Expr *collection, VSS_Block body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_REPEAT_EACH;
+        stmt->kind = VSS_STMT_REPEAT_EACH;
         stmt->line = line;
         stmt->column = column;
         stmt->as.repeat_each.var_name = safe_strdup(var_name);
@@ -306,10 +306,10 @@ Stmt *stmt_new_repeat_each(const char *var_name, Expr *collection, Block body, i
     return stmt;
 }
 
-Stmt *stmt_new_during(Expr *condition, Block body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_during(VSS_Expr *condition, VSS_Block body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_DURING;
+        stmt->kind = VSS_STMT_DURING;
         stmt->line = line;
         stmt->column = column;
         stmt->as.during.condition = condition;
@@ -318,30 +318,30 @@ Stmt *stmt_new_during(Expr *condition, Block body, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_leave(int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_leave(int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_LEAVE;
+        stmt->kind = VSS_STMT_LEAVE;
         stmt->line = line;
         stmt->column = column;
     }
     return stmt;
 }
 
-Stmt *stmt_new_skip(int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_skip(int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_SKIP;
+        stmt->kind = VSS_STMT_SKIP;
         stmt->line = line;
         stmt->column = column;
     }
     return stmt;
 }
 
-Stmt *stmt_new_task(const char *name, char **params, size_t param_count, Block body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_task(const char *name, char **params, size_t param_count, VSS_Block body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_TASK;
+        stmt->kind = VSS_STMT_TASK;
         stmt->line = line;
         stmt->column = column;
         stmt->as.task.name = safe_strdup(name);
@@ -352,10 +352,10 @@ Stmt *stmt_new_task(const char *name, char **params, size_t param_count, Block b
     return stmt;
 }
 
-Stmt *stmt_new_send(Expr *expression, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_send(VSS_Expr *expression, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_SEND;
+        stmt->kind = VSS_STMT_SEND;
         stmt->line = line;
         stmt->column = column;
         stmt->as.send.expression = expression;
@@ -363,10 +363,10 @@ Stmt *stmt_new_send(Expr *expression, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_grab(const char *module_name, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_grab(const char *module_name, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_GRAB;
+        stmt->kind = VSS_STMT_GRAB;
         stmt->line = line;
         stmt->column = column;
         stmt->as.grab.module_name = safe_strdup(module_name);
@@ -374,10 +374,10 @@ Stmt *stmt_new_grab(const char *module_name, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_attempt(Block try_body, const char *problem_var, Block rescue_body, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_attempt(VSS_Block try_body, const char *problem_var, VSS_Block rescue_body, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_ATTEMPT;
+        stmt->kind = VSS_STMT_ATTEMPT;
         stmt->line = line;
         stmt->column = column;
         stmt->as.attempt.try_body = try_body;
@@ -387,10 +387,10 @@ Stmt *stmt_new_attempt(Block try_body, const char *problem_var, Block rescue_bod
     return stmt;
 }
 
-Stmt *stmt_new_choose(Expr *expr, ChooseCase *cases, size_t case_count, Block otherwise_branch, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_choose(VSS_Expr *expr, VSS_ChooseCase *cases, size_t case_count, VSS_Block otherwise_branch, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_CHOOSE;
+        stmt->kind = VSS_STMT_CHOOSE;
         stmt->line = line;
         stmt->column = column;
         stmt->as.choose.expr = expr;
@@ -401,10 +401,10 @@ Stmt *stmt_new_choose(Expr *expr, ChooseCase *cases, size_t case_count, Block ot
     return stmt;
 }
 
-Stmt *stmt_new_put(Expr *value, Expr *list, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_put(VSS_Expr *value, VSS_Expr *list, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_PUT;
+        stmt->kind = VSS_STMT_PUT;
         stmt->line = line;
         stmt->column = column;
         stmt->as.put.value = value;
@@ -413,10 +413,10 @@ Stmt *stmt_new_put(Expr *value, Expr *list, int line, int column) {
     return stmt;
 }
 
-Stmt *stmt_new_set_field(Expr *map, Expr *field, Expr *value, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_set_field(VSS_Expr *map, VSS_Expr *field, VSS_Expr *value, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_SET_FIELD;
+        stmt->kind = VSS_STMT_SET_FIELD;
         stmt->line = line;
         stmt->column = column;
         stmt->as.set_field.map = map;
@@ -426,30 +426,30 @@ Stmt *stmt_new_set_field(Expr *map, Expr *field, Expr *value, int line, int colu
     return stmt;
 }
 
-Stmt *stmt_new_hi_htmvss(int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_hi_htmvss(int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_HI_HTMVSS;
+        stmt->kind = VSS_STMT_HI_HTMVSS;
         stmt->line = line;
         stmt->column = column;
     }
     return stmt;
 }
 
-Stmt *stmt_new_bye_htmvss(int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_bye_htmvss(int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_BYE_HTMVSS;
+        stmt->kind = VSS_STMT_BYE_HTMVSS;
         stmt->line = line;
         stmt->column = column;
     }
     return stmt;
 }
 
-Stmt *stmt_new_expr(Expr *expression, int line, int column) {
-    Stmt *stmt = malloc(sizeof(Stmt));
+VSS_Stmt *vss_stmt_new_expr(VSS_Expr *expression, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
-        stmt->kind = STMT_EXPR;
+        stmt->kind = VSS_STMT_EXPR;
         stmt->line = line;
         stmt->column = column;
         stmt->as.expr_stmt.expression = expression;
@@ -457,105 +457,105 @@ Stmt *stmt_new_expr(Expr *expression, int line, int column) {
     return stmt;
 }
 
-void block_free(Block block) {
+void vss_block_free(VSS_Block block) {
     if (block.statements) {
         for (size_t i = 0; i < block.count; i++) {
-            stmt_free(block.statements[i]);
+            vss_stmt_free(block.statements[i]);
         }
         free(block.statements);
     }
 }
 
-void stmt_free(Stmt *stmt) {
+void vss_stmt_free(VSS_Stmt *stmt) {
     if (!stmt) return;
     switch (stmt->kind) {
-        case STMT_MAKE:
+        case VSS_STMT_MAKE:
             free(stmt->as.make.name);
-            expr_free(stmt->as.make.initializer);
+            vss_expr_free(stmt->as.make.initializer);
             break;
-        case STMT_KEEP:
+        case VSS_STMT_KEEP:
             free(stmt->as.keep.name);
-            expr_free(stmt->as.keep.initializer);
+            vss_expr_free(stmt->as.keep.initializer);
             break;
-        case STMT_ASSIGN:
+        case VSS_STMT_ASSIGN:
             free(stmt->as.assign.name);
-            expr_free(stmt->as.assign.value);
+            vss_expr_free(stmt->as.assign.value);
             break;
-        case STMT_SAY:
-            expr_free(stmt->as.say.expression);
+        case VSS_STMT_SAY:
+            vss_expr_free(stmt->as.say.expression);
             break;
-        case STMT_WHEN:
+        case VSS_STMT_WHEN:
             for (size_t i = 0; i < stmt->as.when.branch_count; i++) {
-                expr_free(stmt->as.when.branches[i].condition);
-                block_free(stmt->as.when.branches[i].block);
+                vss_expr_free(stmt->as.when.branches[i].condition);
+                vss_block_free(stmt->as.when.branches[i].block);
             }
             free(stmt->as.when.branches);
-            block_free(stmt->as.when.otherwise_branch);
+            vss_block_free(stmt->as.when.otherwise_branch);
             break;
-        case STMT_REPEAT_COUNT:
-            expr_free(stmt->as.repeat_count.count_expr);
-            block_free(stmt->as.repeat_count.body);
+        case VSS_STMT_REPEAT_COUNT:
+            vss_expr_free(stmt->as.repeat_count.count_expr);
+            vss_block_free(stmt->as.repeat_count.body);
             break;
-        case STMT_REPEAT_RANGE:
+        case VSS_STMT_REPEAT_RANGE:
             free(stmt->as.repeat_range.var_name);
-            expr_free(stmt->as.repeat_range.start);
-            expr_free(stmt->as.repeat_range.end);
-            block_free(stmt->as.repeat_range.body);
+            vss_expr_free(stmt->as.repeat_range.start);
+            vss_expr_free(stmt->as.repeat_range.end);
+            vss_block_free(stmt->as.repeat_range.body);
             break;
-        case STMT_REPEAT_EACH:
+        case VSS_STMT_REPEAT_EACH:
             free(stmt->as.repeat_each.var_name);
-            expr_free(stmt->as.repeat_each.collection);
-            block_free(stmt->as.repeat_each.body);
+            vss_expr_free(stmt->as.repeat_each.collection);
+            vss_block_free(stmt->as.repeat_each.body);
             break;
-        case STMT_DURING:
-            expr_free(stmt->as.during.condition);
-            block_free(stmt->as.during.body);
+        case VSS_STMT_DURING:
+            vss_expr_free(stmt->as.during.condition);
+            vss_block_free(stmt->as.during.body);
             break;
-        case STMT_LEAVE:
-        case STMT_SKIP:
+        case VSS_STMT_LEAVE:
+        case VSS_STMT_SKIP:
             break;
-        case STMT_TASK:
+        case VSS_STMT_TASK:
             free(stmt->as.task.name);
             for (size_t i = 0; i < stmt->as.task.param_count; i++) {
                 free(stmt->as.task.params[i]);
             }
             free(stmt->as.task.params);
-            block_free(stmt->as.task.body);
+            vss_block_free(stmt->as.task.body);
             break;
-        case STMT_SEND:
-            expr_free(stmt->as.send.expression);
+        case VSS_STMT_SEND:
+            vss_expr_free(stmt->as.send.expression);
             break;
-        case STMT_GRAB:
+        case VSS_STMT_GRAB:
             free(stmt->as.grab.module_name);
             break;
-        case STMT_ATTEMPT:
-            block_free(stmt->as.attempt.try_body);
+        case VSS_STMT_ATTEMPT:
+            vss_block_free(stmt->as.attempt.try_body);
             free(stmt->as.attempt.problem_var);
-            block_free(stmt->as.attempt.rescue_body);
+            vss_block_free(stmt->as.attempt.rescue_body);
             break;
-        case STMT_CHOOSE:
-            expr_free(stmt->as.choose.expr);
+        case VSS_STMT_CHOOSE:
+            vss_expr_free(stmt->as.choose.expr);
             for (size_t i = 0; i < stmt->as.choose.case_count; i++) {
-                expr_free(stmt->as.choose.cases[i].expr);
-                block_free(stmt->as.choose.cases[i].block);
+                vss_expr_free(stmt->as.choose.cases[i].expr);
+                vss_block_free(stmt->as.choose.cases[i].block);
             }
             free(stmt->as.choose.cases);
-            block_free(stmt->as.choose.otherwise_branch);
+            vss_block_free(stmt->as.choose.otherwise_branch);
             break;
-        case STMT_PUT:
-            expr_free(stmt->as.put.value);
-            expr_free(stmt->as.put.list);
+        case VSS_STMT_PUT:
+            vss_expr_free(stmt->as.put.value);
+            vss_expr_free(stmt->as.put.list);
             break;
-        case STMT_SET_FIELD:
-            expr_free(stmt->as.set_field.map);
-            expr_free(stmt->as.set_field.field);
-            expr_free(stmt->as.set_field.value);
+        case VSS_STMT_SET_FIELD:
+            vss_expr_free(stmt->as.set_field.map);
+            vss_expr_free(stmt->as.set_field.field);
+            vss_expr_free(stmt->as.set_field.value);
             break;
-        case STMT_HI_HTMVSS:
-        case STMT_BYE_HTMVSS:
+        case VSS_STMT_HI_HTMVSS:
+        case VSS_STMT_BYE_HTMVSS:
             break;
-        case STMT_EXPR:
-            expr_free(stmt->as.expr_stmt.expression);
+        case VSS_STMT_EXPR:
+            vss_expr_free(stmt->as.expr_stmt.expression);
             break;
     }
     free(stmt);

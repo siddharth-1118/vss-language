@@ -5,39 +5,39 @@
 #include "value.h"
 #include "chunk.h"
 
-typedef struct ObjFunction {
+typedef struct VSS_ObjFunction {
     int ref_count;
     char *name;
     size_t param_count;
-    Chunk chunk;
+    VSS_Chunk chunk;
     int upvalue_count;
-} ObjFunction;
+} VSS_ObjFunction;
 
-typedef struct Upvalue Upvalue;
-struct Upvalue {
+typedef struct VSS_Upvalue VSS_Upvalue;
+struct VSS_Upvalue {
     int ref_count;
-    Value *location;  // Points to slot on stack (if open) or closed_value (if closed)
-    Value closed_value;
-    Upvalue *next;    // Linked list of open upvalues
+    VSS_Value *location;  // Points to slot on stack (if open) or closed_value (if closed)
+    VSS_Value closed_value;
+    VSS_Upvalue *next;    // Linked list of open upvalues
 };
 
-typedef struct ObjClosure {
+typedef struct VSS_ObjClosure {
     int ref_count;
-    ObjFunction *function;
-    Upvalue **upvalues;
+    VSS_ObjFunction *function;
+    VSS_Upvalue **upvalues;
     int upvalue_count;
-} ObjClosure;
+} VSS_ObjClosure;
 
-ObjFunction *function_new(const char *name, size_t param_count);
-void function_retain(ObjFunction *func);
-void function_release(ObjFunction *func);
+VSS_ObjFunction *vss_function_new(const char *name, size_t param_count);
+void vss_function_retain(VSS_ObjFunction *func);
+void vss_function_release(VSS_ObjFunction *func);
 
-Upvalue *upvalue_new(Value *slot);
-void upvalue_retain(Upvalue *uv);
-void upvalue_release(Upvalue *uv);
+VSS_Upvalue *vss_upvalue_new(VSS_Value *slot);
+void vss_upvalue_retain(VSS_Upvalue *uv);
+void vss_upvalue_release(VSS_Upvalue *uv);
 
-ObjClosure *closure_new(ObjFunction *func);
-void closure_retain(ObjClosure *closure);
-void closure_release(ObjClosure *closure);
+VSS_ObjClosure *vss_closure_new(VSS_ObjFunction *func);
+void vss_closure_retain(VSS_ObjClosure *closure);
+void vss_closure_release(VSS_ObjClosure *closure);
 
 #endif

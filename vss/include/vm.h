@@ -7,38 +7,38 @@
 #include "object.h"
 #include "env.h"
 
-#define STACK_MAX 256
-#define FRAMES_MAX 64
-#define TRAPS_MAX 16
+#define VSS_STACK_MAX 256
+#define VSS_FRAMES_MAX 64
+#define VSS_TRAPS_MAX 16
 
 typedef struct {
-    ObjClosure *closure;
+    VSS_ObjClosure *closure;
     uint8_t *ip;
-    Value *slots;
-} CallFrame;
+    VSS_Value *slots;
+} VSS_CallFrame;
 
 typedef struct {
     int depth;
     uint8_t *handler_ip;
-} TrapFrame;
+} VSS_TrapFrame;
 
 typedef struct {
-    CallFrame frames[FRAMES_MAX];
+    VSS_CallFrame frames[VSS_FRAMES_MAX];
     int frame_count;
     
-    Value stack[STACK_MAX];
-    Value *stack_top;
+    VSS_Value stack[VSS_STACK_MAX];
+    VSS_Value *stack_top;
     
-    TrapFrame traps[TRAPS_MAX];
+    VSS_TrapFrame traps[VSS_TRAPS_MAX];
     int trap_count;
     
-    Upvalue *open_upvalues;
-    Env *globals;
+    VSS_Upvalue *open_upvalues;
+    VSS_Env *globals;
     jmp_buf jump_buffer;
-} VM;
+} VSS_VM;
 
-void vm_init(VM *vm, Env *global_env);
-void vm_free(VM *vm);
-bool vm_run(ObjFunction *func, Env *global_env);
+void vss_vm_init(VSS_VM *vm, VSS_Env *global_env);
+void vss_vm_free(VSS_VM *vm);
+bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env);
 
 #endif

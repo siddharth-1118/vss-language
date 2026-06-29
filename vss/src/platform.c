@@ -30,8 +30,8 @@ void vss_network_cleanup(void) {
     WSACleanup();
 }
 
-VssSocket vss_socket_create(void) {
-    VssSocket sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+VSS_Socket vss_socket_create(void) {
+    VSS_Socket sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) return VSS_INVALID_SOCKET;
     
     // Set reuseaddr
@@ -40,7 +40,7 @@ VssSocket vss_socket_create(void) {
     return sock;
 }
 
-bool vss_socket_bind(VssSocket sock, int port) {
+bool vss_socket_bind(VSS_Socket sock, int port) {
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -51,28 +51,28 @@ bool vss_socket_bind(VssSocket sock, int port) {
     return true;
 }
 
-bool vss_socket_listen(VssSocket sock, int backlog) {
+bool vss_socket_listen(VSS_Socket sock, int backlog) {
     if (listen(sock, backlog) == SOCKET_ERROR) {
         return false;
     }
     return true;
 }
 
-VssSocket vss_socket_accept(VssSocket sock) {
-    VssSocket client = accept(sock, NULL, NULL);
+VSS_Socket vss_socket_accept(VSS_Socket sock) {
+    VSS_Socket client = accept(sock, NULL, NULL);
     if (client == INVALID_SOCKET) return VSS_INVALID_SOCKET;
     return client;
 }
 
-int vss_socket_send(VssSocket sock, const char *buf, int len) {
+int vss_socket_send(VSS_Socket sock, const char *buf, int len) {
     return send(sock, buf, len, 0);
 }
 
-int vss_socket_recv(VssSocket sock, char *buf, int len) {
+int vss_socket_recv(VSS_Socket sock, char *buf, int len) {
     return recv(sock, buf, len, 0);
 }
 
-void vss_socket_close(VssSocket sock) {
+void vss_socket_close(VSS_Socket sock) {
     if (sock != INVALID_SOCKET) {
         closesocket(sock);
     }
@@ -151,7 +151,7 @@ void vss_network_cleanup(void) {
     // No-op
 }
 
-VssSocket vss_socket_create(void) {
+VSS_Socket vss_socket_create(void) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return VSS_INVALID_SOCKET;
     
@@ -160,7 +160,7 @@ VssSocket vss_socket_create(void) {
     return sock;
 }
 
-bool vss_socket_bind(VssSocket sock, int port) {
+bool vss_socket_bind(VSS_Socket sock, int port) {
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -171,28 +171,28 @@ bool vss_socket_bind(VssSocket sock, int port) {
     return true;
 }
 
-bool vss_socket_listen(VssSocket sock, int backlog) {
+bool vss_socket_listen(VSS_Socket sock, int backlog) {
     if (listen(sock, backlog) < 0) {
         return false;
     }
     return true;
 }
 
-VssSocket vss_socket_accept(VssSocket sock) {
+VSS_Socket vss_socket_accept(VSS_Socket sock) {
     int client = accept(sock, NULL, NULL);
     if (client < 0) return VSS_INVALID_SOCKET;
     return client;
 }
 
-int vss_socket_send(VssSocket sock, const char *buf, int len) {
+int vss_socket_send(VSS_Socket sock, const char *buf, int len) {
     return send(sock, buf, len, 0);
 }
 
-int vss_socket_recv(VssSocket sock, char *buf, int len) {
+int vss_socket_recv(VSS_Socket sock, char *buf, int len) {
     return recv(sock, buf, len, 0);
 }
 
-void vss_socket_close(VssSocket sock) {
+void vss_socket_close(VSS_Socket sock) {
     if (sock >= 0) {
         close(sock);
     }

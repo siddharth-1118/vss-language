@@ -5,24 +5,24 @@
 #include "token.h"
 
 typedef enum {
-    EXPR_NUMBER,
-    EXPR_STRING,
-    EXPR_BOOL,
-    EXPR_EMPTY,
-    EXPR_NAME,
-    EXPR_BINARY,
-    EXPR_UNARY,
-    EXPR_LIST,
-    EXPR_MAP,
-    EXPR_ITEM_ACCESS,
-    EXPR_FIELD_ACCESS,
-    EXPR_CALL
-} ExprKind;
+    VSS_EXPR_NUMBER,
+    VSS_EXPR_STRING,
+    VSS_EXPR_BOOL,
+    VSS_EXPR_EMPTY,
+    VSS_EXPR_NAME,
+    VSS_EXPR_BINARY,
+    VSS_EXPR_UNARY,
+    VSS_EXPR_LIST,
+    VSS_EXPR_MAP,
+    VSS_EXPR_ITEM_ACCESS,
+    VSS_EXPR_FIELD_ACCESS,
+    VSS_EXPR_CALL
+} VSS_ExprKind;
 
-typedef struct Expr Expr;
+typedef struct VSS_Expr VSS_Expr;
 
-struct Expr {
-    ExprKind kind;
+struct VSS_Expr {
+    VSS_ExprKind kind;
     int line;
     int column;
     union {
@@ -31,202 +31,202 @@ struct Expr {
         bool boolean;
         char *name;
         struct {
-            TokenType op;
-            Expr *left;
-            Expr *right;
+            VSS_TokenType op;
+            VSS_Expr *left;
+            VSS_Expr *right;
         } binary;
         struct {
-            TokenType op;
-            Expr *operand;
+            VSS_TokenType op;
+            VSS_Expr *operand;
         } unary;
         struct {
-            Expr **elements;
+            VSS_Expr **elements;
             size_t count;
         } list;
         struct {
             char **keys;
-            Expr **values;
+            VSS_Expr **values;
             size_t count;
         } map;
         struct {
-            Expr *list;
-            Expr *index;
+            VSS_Expr *list;
+            VSS_Expr *index;
         } item_access;
         struct {
-            Expr *map;
-            Expr *field;
+            VSS_Expr *map;
+            VSS_Expr *field;
         } field_access;
         struct {
-            Expr *callee;
-            Expr **args;
+            VSS_Expr *callee;
+            VSS_Expr **args;
             size_t count;
         } call;
     } as;
 };
 
 typedef enum {
-    STMT_MAKE,
-    STMT_KEEP,
-    STMT_ASSIGN,
-    STMT_SAY,
-    STMT_WHEN,
-    STMT_REPEAT_COUNT,
-    STMT_REPEAT_RANGE,
-    STMT_REPEAT_EACH,
-    STMT_DURING,
-    STMT_LEAVE,
-    STMT_SKIP,
-    STMT_TASK,
-    STMT_SEND,
-    STMT_GRAB,
-    STMT_ATTEMPT,
-    STMT_CHOOSE,
-    STMT_PUT,
-    STMT_SET_FIELD,
-    STMT_HI_HTMVSS,
-    STMT_BYE_HTMVSS,
-    STMT_EXPR
-} StmtKind;
+    VSS_STMT_MAKE,
+    VSS_STMT_KEEP,
+    VSS_STMT_ASSIGN,
+    VSS_STMT_SAY,
+    VSS_STMT_WHEN,
+    VSS_STMT_REPEAT_COUNT,
+    VSS_STMT_REPEAT_RANGE,
+    VSS_STMT_REPEAT_EACH,
+    VSS_STMT_DURING,
+    VSS_STMT_LEAVE,
+    VSS_STMT_SKIP,
+    VSS_STMT_TASK,
+    VSS_STMT_SEND,
+    VSS_STMT_GRAB,
+    VSS_STMT_ATTEMPT,
+    VSS_STMT_CHOOSE,
+    VSS_STMT_PUT,
+    VSS_STMT_SET_FIELD,
+    VSS_STMT_HI_HTMVSS,
+    VSS_STMT_BYE_HTMVSS,
+    VSS_STMT_EXPR
+} VSS_StmtKind;
 
-typedef struct Stmt Stmt;
+typedef struct VSS_Stmt VSS_Stmt;
 
 typedef struct {
-    Stmt **statements;
+    VSS_Stmt **statements;
     size_t count;
-} Block;
+} VSS_Block;
 
 typedef struct {
-    Expr *condition;
-    Block block;
-} WhenBranch;
+    VSS_Expr *condition;
+    VSS_Block block;
+} VSS_WhenBranch;
 
 typedef struct {
-    Expr *expr;
-    Block block;
-} ChooseCase;
+    VSS_Expr *expr;
+    VSS_Block block;
+} VSS_ChooseCase;
 
-struct Stmt {
-    StmtKind kind;
+struct VSS_Stmt {
+    VSS_StmtKind kind;
     int line;
     int column;
     union {
         struct {
             char *name;
-            Expr *initializer;
+            VSS_Expr *initializer;
         } make;
         struct {
             char *name;
-            Expr *initializer;
+            VSS_Expr *initializer;
         } keep;
         struct {
             char *name;
-            Expr *value;
+            VSS_Expr *value;
         } assign;
         struct {
-            Expr *expression;
+            VSS_Expr *expression;
         } say;
         struct {
-            WhenBranch *branches;
+            VSS_WhenBranch *branches;
             size_t branch_count;
-            Block otherwise_branch;
+            VSS_Block otherwise_branch;
         } when;
         struct {
-            Expr *count_expr;
-            Block body;
+            VSS_Expr *count_expr;
+            VSS_Block body;
         } repeat_count;
         struct {
             char *var_name;
-            Expr *start;
-            Expr *end;
-            Block body;
+            VSS_Expr *start;
+            VSS_Expr *end;
+            VSS_Block body;
         } repeat_range;
         struct {
             char *var_name;
-            Expr *collection;
-            Block body;
+            VSS_Expr *collection;
+            VSS_Block body;
         } repeat_each;
         struct {
-            Expr *condition;
-            Block body;
+            VSS_Expr *condition;
+            VSS_Block body;
         } during;
         struct {
             char *name;
             char **params;
             size_t param_count;
-            Block body;
+            VSS_Block body;
         } task;
         struct {
-            Expr *expression;
+            VSS_Expr *expression;
         } send;
         struct {
             char *module_name;
         } grab;
         struct {
-            Block try_body;
+            VSS_Block try_body;
             char *problem_var;
-            Block rescue_body;
+            VSS_Block rescue_body;
         } attempt;
         struct {
-            Expr *expr;
-            ChooseCase *cases;
+            VSS_Expr *expr;
+            VSS_ChooseCase *cases;
             size_t case_count;
-            Block otherwise_branch;
+            VSS_Block otherwise_branch;
         } choose;
         struct {
-            Expr *value;
-            Expr *list;
+            VSS_Expr *value;
+            VSS_Expr *list;
         } put;
         struct {
-            Expr *map;
-            Expr *field;
-            Expr *value;
+            VSS_Expr *map;
+            VSS_Expr *field;
+            VSS_Expr *value;
         } set_field;
         struct {
-            Expr *expression;
+            VSS_Expr *expression;
         } expr_stmt;
     } as;
 };
 
 // Constructor helpers for Expressions
-Expr *expr_new_number(double value, int line, int column);
-Expr *expr_new_string(const char *value, int line, int column);
-Expr *expr_new_bool(bool value, int line, int column);
-Expr *expr_new_empty(int line, int column);
-Expr *expr_new_name(const char *name, int line, int column);
-Expr *expr_new_binary(TokenType op, Expr *left, Expr *right, int line, int column);
-Expr *expr_new_unary(TokenType op, Expr *operand, int line, int column);
-Expr *expr_new_list(Expr **elements, size_t count, int line, int column);
-Expr *expr_new_map(char **keys, Expr **values, size_t count, int line, int column);
-Expr *expr_new_item_access(Expr *list, Expr *index, int line, int column);
-Expr *expr_new_field_access(Expr *map, Expr *field, int line, int column);
-Expr *expr_new_call(Expr *callee, Expr **args, size_t count, int line, int column);
+VSS_Expr *vss_expr_new_number(double value, int line, int column);
+VSS_Expr *vss_expr_new_string(const char *value, int line, int column);
+VSS_Expr *vss_expr_new_bool(bool value, int line, int column);
+VSS_Expr *vss_expr_new_empty(int line, int column);
+VSS_Expr *vss_expr_new_name(const char *name, int line, int column);
+VSS_Expr *vss_expr_new_binary(VSS_TokenType op, VSS_Expr *left, VSS_Expr *right, int line, int column);
+VSS_Expr *vss_expr_new_unary(VSS_TokenType op, VSS_Expr *operand, int line, int column);
+VSS_Expr *vss_expr_new_list(VSS_Expr **elements, size_t count, int line, int column);
+VSS_Expr *vss_expr_new_map(char **keys, VSS_Expr **values, size_t count, int line, int column);
+VSS_Expr *vss_expr_new_item_access(VSS_Expr *list, VSS_Expr *index, int line, int column);
+VSS_Expr *vss_expr_new_field_access(VSS_Expr *map, VSS_Expr *field, int line, int column);
+VSS_Expr *vss_expr_new_call(VSS_Expr *callee, VSS_Expr **args, size_t count, int line, int column);
 
-void expr_free(Expr *expr);
+void vss_expr_free(VSS_Expr *expr);
 
 // Constructor helpers for Statements
-Stmt *stmt_new_make(const char *name, Expr *initializer, int line, int column);
-Stmt *stmt_new_keep(const char *name, Expr *initializer, int line, int column);
-Stmt *stmt_new_assign(const char *name, Expr *value, int line, int column);
-Stmt *stmt_new_say(Expr *expression, int line, int column);
-Stmt *stmt_new_when(WhenBranch *branches, size_t branch_count, Block otherwise_branch, int line, int column);
-Stmt *stmt_new_repeat_count(Expr *count_expr, Block body, int line, int column);
-Stmt *stmt_new_repeat_range(const char *var_name, Expr *start, Expr *end, Block body, int line, int column);
-Stmt *stmt_new_repeat_each(const char *var_name, Expr *collection, Block body, int line, int column);
-Stmt *stmt_new_during(Expr *condition, Block body, int line, int column);
-Stmt *stmt_new_leave(int line, int column);
-Stmt *stmt_new_skip(int line, int column);
-Stmt *stmt_new_task(const char *name, char **params, size_t param_count, Block body, int line, int column);
-Stmt *stmt_new_send(Expr *expression, int line, int column);
-Stmt *stmt_new_grab(const char *module_name, int line, int column);
-Stmt *stmt_new_attempt(Block try_body, const char *problem_var, Block rescue_body, int line, int column);
-Stmt *stmt_new_choose(Expr *expr, ChooseCase *cases, size_t case_count, Block otherwise_branch, int line, int column);
-Stmt *stmt_new_put(Expr *value, Expr *list, int line, int column);
-Stmt *stmt_new_set_field(Expr *map, Expr *field, Expr *value, int line, int column);
-Stmt *stmt_new_hi_htmvss(int line, int column);
-Stmt *stmt_new_bye_htmvss(int line, int column);
-Stmt *stmt_new_expr(Expr *expression, int line, int column);
+VSS_Stmt *vss_stmt_new_make(const char *name, VSS_Expr *initializer, int line, int column);
+VSS_Stmt *vss_stmt_new_keep(const char *name, VSS_Expr *initializer, int line, int column);
+VSS_Stmt *vss_stmt_new_assign(const char *name, VSS_Expr *value, int line, int column);
+VSS_Stmt *vss_stmt_new_say(VSS_Expr *expression, int line, int column);
+VSS_Stmt *vss_stmt_new_when(VSS_WhenBranch *branches, size_t branch_count, VSS_Block otherwise_branch, int line, int column);
+VSS_Stmt *vss_stmt_new_repeat_count(VSS_Expr *count_expr, VSS_Block body, int line, int column);
+VSS_Stmt *vss_stmt_new_repeat_range(const char *var_name, VSS_Expr *start, VSS_Expr *end, VSS_Block body, int line, int column);
+VSS_Stmt *vss_stmt_new_repeat_each(const char *var_name, VSS_Expr *collection, VSS_Block body, int line, int column);
+VSS_Stmt *vss_stmt_new_during(VSS_Expr *condition, VSS_Block body, int line, int column);
+VSS_Stmt *vss_stmt_new_leave(int line, int column);
+VSS_Stmt *vss_stmt_new_skip(int line, int column);
+VSS_Stmt *vss_stmt_new_task(const char *name, char **params, size_t param_count, VSS_Block body, int line, int column);
+VSS_Stmt *vss_stmt_new_send(VSS_Expr *expression, int line, int column);
+VSS_Stmt *vss_stmt_new_grab(const char *module_name, int line, int column);
+VSS_Stmt *vss_stmt_new_attempt(VSS_Block try_body, const char *problem_var, VSS_Block rescue_body, int line, int column);
+VSS_Stmt *vss_stmt_new_choose(VSS_Expr *expr, VSS_ChooseCase *cases, size_t case_count, VSS_Block otherwise_branch, int line, int column);
+VSS_Stmt *vss_stmt_new_put(VSS_Expr *value, VSS_Expr *list, int line, int column);
+VSS_Stmt *vss_stmt_new_set_field(VSS_Expr *map, VSS_Expr *field, VSS_Expr *value, int line, int column);
+VSS_Stmt *vss_stmt_new_hi_htmvss(int line, int column);
+VSS_Stmt *vss_stmt_new_bye_htmvss(int line, int column);
+VSS_Stmt *vss_stmt_new_expr(VSS_Expr *expression, int line, int column);
 
-void stmt_free(Stmt *stmt);
-void block_free(Block block);
+void vss_stmt_free(VSS_Stmt *stmt);
+void vss_block_free(VSS_Block block);
 
 #endif

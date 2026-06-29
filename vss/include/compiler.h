@@ -4,6 +4,6 @@
 #include "ast.h"
 #include "object.h"
 
-ObjFunction *compile_program(Block program);
+VSS_ObjFunction *vss_compile_program(VSS_Block program);
 
 #endif

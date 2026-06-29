@@ -4,97 +4,97 @@
 #include "common.h"
 
 typedef enum {
-    VAL_NUMBER,
-    VAL_STRING,
-    VAL_BOOL,
-    VAL_EMPTY,
-    VAL_LIST,
-    VAL_MAP,
-    VAL_TASK,
-    VAL_NATIVE,
-    VAL_CLOSURE,
-    VAL_FUNCTION
-} ValueType;
+    VSS_VAL_NUMBER,
+    VSS_VAL_STRING,
+    VSS_VAL_BOOL,
+    VSS_VAL_EMPTY,
+    VSS_VAL_LIST,
+    VSS_VAL_MAP,
+    VSS_VAL_TASK,
+    VSS_VAL_NATIVE,
+    VSS_VAL_CLOSURE,
+    VSS_VAL_FUNCTION
+} VSS_ValueType;
 
-typedef struct ValString ValString;
-typedef struct ValList ValList;
-typedef struct ValMap ValMap;
-typedef struct ValTask ValTask;
-typedef struct ObjClosure ObjClosure;
-typedef struct ObjFunction ObjFunction;
-struct Stmt;
-struct Env;
+typedef struct VSS_ValString VSS_ValString;
+typedef struct VSS_ValList VSS_ValList;
+typedef struct VSS_ValMap VSS_ValMap;
+typedef struct VSS_ValTask VSS_ValTask;
+typedef struct VSS_ObjClosure VSS_ObjClosure;
+typedef struct VSS_ObjFunction VSS_ObjFunction;
+struct VSS_Stmt;
+struct VSS_Env;
 
-typedef struct Value (*NativeFnPtr)(size_t arg_count, struct Value *args, bool *out_error, char **out_error_msg);
+typedef struct VSS_Value (*VSS_NativeFnPtr)(size_t arg_count, struct VSS_Value *args, bool *out_error, char **out_error_msg);
 
-typedef struct Value {
-    ValueType type;
+typedef struct VSS_Value {
+    VSS_ValueType type;
     union {
         double number;
         bool boolean;
-        ValString *string;
-        ValList *list;
-        ValMap *map;
-        ValTask *task;
-        NativeFnPtr native;
-        ObjClosure *closure;
-        ObjFunction *function;
+        VSS_ValString *string;
+        VSS_ValList *list;
+        VSS_ValMap *map;
+        VSS_ValTask *task;
+        VSS_NativeFnPtr native;
+        VSS_ObjClosure *closure;
+        VSS_ObjFunction *function;
     } as;
-} Value;
+} VSS_Value;
 
-struct ValString {
+struct VSS_ValString {
     int ref_count;
     char *chars;
 };
 
-struct ValList {
+struct VSS_ValList {
     int ref_count;
-    Value *items;
+    VSS_Value *items;
     size_t count;
     size_t capacity;
 };
 
 typedef struct {
     char *key;
-    Value value;
-} ValMapEntry;
+    VSS_Value value;
+} VSS_ValMapEntry;
 
-struct ValMap {
+struct VSS_ValMap {
     int ref_count;
-    ValMapEntry *entries;
+    VSS_ValMapEntry *entries;
     size_t count;
     size_t capacity;
 };
 
-struct ValTask {
+struct VSS_ValTask {
     int ref_count;
     char **params;
     size_t param_count;
-    struct Stmt **body;
+    struct VSS_Stmt **body;
     size_t body_count;
-    struct Env *closure;
+    struct VSS_Env *closure;
 };
 
 // Constructors
-Value value_new_number(double n);
-Value value_new_string(const char *s);
-Value value_new_bool(bool b);
-Value value_new_empty(void);
-Value value_new_list(void);
-Value value_new_map(void);
-Value value_new_task(char **params, size_t param_count, struct Stmt **body, size_t body_count, struct Env *closure);
-Value value_new_native(NativeFnPtr func);
-Value value_new_closure(ObjClosure *closure);
-Value value_new_function(ObjFunction *func);
+VSS_Value vss_value_new_number(double n);
+VSS_Value vss_value_new_string(const char *s);
+VSS_Value vss_value_new_bool(bool b);
+VSS_Value vss_value_new_empty(void);
+VSS_Value vss_value_new_list(void);
+VSS_Value vss_value_new_map(void);
+VSS_Value vss_value_new_task(char **params, size_t param_count, struct VSS_Stmt **body, size_t body_count, struct VSS_Env *closure);
+VSS_Value vss_value_new_native(VSS_NativeFnPtr func);
+VSS_Value vss_value_new_closure(VSS_ObjClosure *closure);
+VSS_Value vss_value_new_function(VSS_ObjFunction *func);
 
 // Reference counting
-void value_retain(Value v);
-void value_release(Value v);
+void vss_value_retain(VSS_Value v);
+void vss_value_release(VSS_Value v);
 
 // Utility functions
-bool value_same_as(Value a, Value b);
-bool value_truthy(Value v);
-void value_say(Value v);
-char *value_to_string(Value v);
+bool vss_value_same_as(VSS_Value a, VSS_Value b);
+bool vss_value_truthy(VSS_Value v);
+void vss_value_say(VSS_Value v);
+char *vss_value_to_string(VSS_Value v);
 
 #endif

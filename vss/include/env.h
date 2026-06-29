@@ -6,26 +6,26 @@
 
 typedef struct {
     char *name;
-    Value value;
+    VSS_Value value;
     bool is_constant;
-} Binding;
+} VSS_Binding;
 
-typedef struct Env {
+typedef struct VSS_Env {
     int ref_count;
-    Binding *items;
+    VSS_Binding *items;
     size_t count;
     size_t capacity;
-    struct Env *parent;
-} Env;
+    struct VSS_Env *parent;
+} VSS_Env;
 
-Env *env_new(Env *parent);
-void env_retain(Env *env);
-void env_release(Env *env);
+VSS_Env *vss_env_new(VSS_Env *parent);
+void vss_env_retain(VSS_Env *env);
+void vss_env_release(VSS_Env *env);
 
-bool env_define(Env *env, const char *name, Value value);
-bool env_define_const(Env *env, const char *name, Value value);
-bool env_assign(Env *env, const char *name, Value value);
-bool env_get(Env *env, const char *name, Value *out_value);
-bool env_exists_local(Env *env, const char *name);
+bool vss_env_define(VSS_Env *env, const char *name, VSS_Value value);
+bool vss_env_define_const(VSS_Env *env, const char *name, VSS_Value value);
+bool vss_env_assign(VSS_Env *env, const char *name, VSS_Value value);
+bool vss_env_get(VSS_Env *env, const char *name, VSS_Value *out_value);
+bool vss_env_exists_local(VSS_Env *env, const char *name);
 
 #endif

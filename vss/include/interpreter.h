@@ -6,22 +6,22 @@
 #include "value.h"
 
 typedef enum {
-    FLOW_NORMAL,
-    FLOW_SEND,
-    FLOW_LEAVE,
-    FLOW_SKIP,
-    FLOW_ERROR
-} FlowType;
+    VSS_FLOW_NORMAL,
+    VSS_FLOW_SEND,
+    VSS_FLOW_LEAVE,
+    VSS_FLOW_SKIP,
+    VSS_FLOW_ERROR
+} VSS_FlowType;
 
 typedef struct {
-    FlowType type;
-    Value value;     // For FLOW_SEND
-    char *error_msg; // For FLOW_ERROR
+    VSS_FlowType type;
+    VSS_Value value;     // For VSS_FLOW_SEND
+    char *error_msg; // For VSS_FLOW_ERROR
     int line;
     int column;
-} FlowResult;
+} VSS_FlowResult;
 
-FlowResult interpret(Block block, Env *env);
-void register_builtins(Env *env);
+VSS_FlowResult vss_interpret(VSS_Block block, VSS_Env *env);
+void vss_register_builtins(VSS_Env *env);
 
 #endif

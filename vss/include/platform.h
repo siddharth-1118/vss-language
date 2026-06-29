@@ -7,12 +7,12 @@
 #ifdef _WIN32
   #include <winsock2.h>
   #include <ws2tcpip.h>
-  typedef SOCKET VssSocket;
+  typedef SOCKET VSS_Socket;
   #define VSS_INVALID_SOCKET INVALID_SOCKET
   #define VSS_PATH_SEP '\\'
   #define VSS_PATH_SEP_STR "\\"
 #else
-  typedef int VssSocket;
+  typedef int VSS_Socket;
   #define VSS_INVALID_SOCKET (-1)
   #define VSS_PATH_SEP '/'
   #define VSS_PATH_SEP_STR "/"
@@ -22,13 +22,13 @@
 bool vss_network_init(void);
 void vss_network_cleanup(void);
 
-VssSocket vss_socket_create(void);
-bool vss_socket_bind(VssSocket sock, int port);
-bool vss_socket_listen(VssSocket sock, int backlog);
-VssSocket vss_socket_accept(VssSocket sock);
-int vss_socket_send(VssSocket sock, const char *buf, int len);
-int vss_socket_recv(VssSocket sock, char *buf, int len);
-void vss_socket_close(VssSocket sock);
+VSS_Socket vss_socket_create(void);
+bool vss_socket_bind(VSS_Socket sock, int port);
+bool vss_socket_listen(VSS_Socket sock, int backlog);
+VSS_Socket vss_socket_accept(VSS_Socket sock);
+int vss_socket_send(VSS_Socket sock, const char *buf, int len);
+int vss_socket_recv(VSS_Socket sock, char *buf, int len);
+void vss_socket_close(VSS_Socket sock);
 
 // Filesystem API
 bool vss_file_exists(const char *path);

@@ -10,9 +10,9 @@ typedef struct {
     int line;
     int column;
     int token_column;
-} Lexer;
+} VSS_Lexer;
 
-void lexer_init(Lexer *lexer, const char *source);
-Token lexer_next(Lexer *lexer);
+void vss_lexer_init(VSS_Lexer *lexer, const char *source);
+VSS_Token vss_lexer_next(VSS_Lexer *lexer);
 
 #endif
