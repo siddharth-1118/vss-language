@@ -37,11 +37,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential
 
-      - name: Set up GCC (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
-
       # Build VSS
       - name: Build VSS (Unix)
         if: matrix.os != 'windows-latest'
@@ -54,7 +49,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd vss
-          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
+          C:\msys64\mingw64\bin\gcc.exe -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
 
       # Package artifacts
       - name: Package Linux Binary and Debian Package
@@ -91,7 +86,7 @@ jobs:
       - name: Package Windows Binary
         if: matrix.os == 'windows-latest'
         run: |
-          powershell Compress-Archive -Path vss/vss.exe -DestinationPath vss-windows-amd64.zip
+          Compress-Archive -Path vss/vss.exe -DestinationPath vss-windows-amd64.zip
 
       # Upload build outputs
       - name: Upload Artifacts
