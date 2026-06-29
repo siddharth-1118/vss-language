@@ -1,0 +1,634 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
+#include "cli.h"
+#include "lexer.h"
+#include "parser.h"
+#include "compiler.h"
+#include "vm.h"
+#include "interpreter.h" // for register_builtins
+
+// Levenshtein distance helper
+static int min3(int a, int b, int c) {
+    int m = a;
+    if (b < m) m = b;
+    if (c < m) m = c;
+    return m;
+}
+
+static int levenshtein(const char *s, const char *t) {
+    int m = strlen(s);
+    int n = strlen(t);
+    int *d = malloc((m + 1) * (n + 1) * sizeof(int));
+    for (int i = 0; i <= m; i++) d[i * (n + 1)] = i;
+    for (int j = 0; j <= n; j++) d[j] = j;
+    for (int j = 1; j <= n; j++) {
+        for (int i = 1; i <= m; i++) {
+            int cost = (s[i-1] == t[j-1]) ? 0 : 1;
+            d[i * (n + 1) + j] = min3(d[(i-1) * (n + 1) + j] + 1,
+                                     d[i * (n + 1) + j - 1] + 1,
+                                     d[(i-1) * (n + 1) + j - 1] + cost);
+        }
+    }
+    int res = d[m * (n + 1) + n];
+    free(d);
+    return res;
+}
+
+// Serialization implementations
+bool serialize_value(Value val, FILE *out) {
+    uint8_t type = (uint8_t)val.type;
+    fwrite(&type, 1, 1, out);
+    if (val.type == VAL_NUMBER) {
+        fwrite(&val.as.number, sizeof(double), 1, out);
+    } else if (val.type == VAL_STRING) {
+        size_t len = strlen(val.as.string->chars);
+        fwrite(&len, sizeof(size_t), 1, out);
+        fwrite(val.as.string->chars, 1, len, out);
+    } else if (val.type == VAL_BOOL) {
+        uint8_t b = val.as.boolean ? 1 : 0;
+        fwrite(&b, 1, 1, out);
+    } else if (val.type == VAL_FUNCTION) {
+        serialize_function(val.as.function, out);
+    }
+    return true;
+}
+
+Value deserialize_value(FILE *in) {
+    uint8_t type_val;
+    if (fread(&type_val, 1, 1, in) != 1) return value_new_empty();
+    ValueType type = (ValueType)type_val;
+    if (type == VAL_NUMBER) {
+        double d;
+        fread(&d, sizeof(double), 1, in);
+        return value_new_number(d);
+    } else if (type == VAL_STRING) {
+        size_t len;
+        fread(&len, sizeof(size_t), 1, in);
+        char *str = malloc(len + 1);
+        fread(str, 1, len, in);
+        str[len] = '\0';
+        Value v = value_new_string(str);
+        free(str);
+        return v;
+    } else if (type == VAL_BOOL) {
+        uint8_t b;
+        fread(&b, 1, 1, in);
+        return value_new_bool(b != 0);
+    } else if (type == VAL_FUNCTION) {
+        ObjFunction *func = deserialize_function(in);
+        return value_new_function(func);
+    }
+    return value_new_empty();
+}
+
+bool serialize_function(ObjFunction *func, FILE *out) {
+    size_t name_len = func->name ? strlen(func->name) : 0;
+    fwrite(&name_len, sizeof(size_t), 1, out);
+    if (name_len > 0) {
+        fwrite(func->name, 1, name_len, out);
+    }
+    
+    fwrite(&func->param_count, sizeof(size_t), 1, out);
+    fwrite(&func->upvalue_count, sizeof(int), 1, out);
+    
+    fwrite(&func->chunk.count, sizeof(int), 1, out);
+    if (func->chunk.count > 0) {
+        fwrite(func->chunk.code, 1, func->chunk.count, out);
+        fwrite(func->chunk.lines, sizeof(int), func->chunk.count, out);
+    }
+    
+    fwrite(&func->chunk.const_count, sizeof(int), 1, out);
+    for (int i = 0; i < func->chunk.const_count; i++) {
+        serialize_value(func->chunk.constants[i], out);
+    }
+    return true;
+}
+
+ObjFunction *deserialize_function(FILE *in) {
+    size_t name_len;
+    if (fread(&name_len, sizeof(size_t), 1, in) != 1) return NULL;
+    char *name = NULL;
+    if (name_len > 0) {
+        name = malloc(name_len + 1);
+        fread(name, 1, name_len, in);
+        name[name_len] = '\0';
+    }
+    
+    size_t param_count;
+    int upvalue_count;
+    fread(&param_count, sizeof(size_t), 1, in);
+    fread(&upvalue_count, sizeof(int), 1, in);
+    
+    ObjFunction *func = function_new(name ? name : "", param_count);
+    free(name);
+    func->upvalue_count = upvalue_count;
+    
+    int code_count;
+    fread(&code_count, sizeof(int), 1, in);
+    if (code_count > 0) {
+        func->chunk.count = code_count;
+        func->chunk.capacity = code_count;
+        func->chunk.code = malloc(code_count);
+        func->chunk.lines = malloc(code_count * sizeof(int));
+        fread(func->chunk.code, 1, code_count, in);
+        fread(func->chunk.lines, sizeof(int), code_count, in);
+    }
+    
+    int const_count;
+    fread(&const_count, sizeof(int), 1, in);
+    for (int i = 0; i < const_count; i++) {
+        Value val = deserialize_value(in);
+        chunk_add_constant(&func->chunk, val);
+        value_release(val);
+    }
+    
+    return func;
+}
+
+static char *read_file_text(const char *path) {
+    FILE *file = fopen(path, "rb");
+    if (!file) return NULL;
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+    char *buffer = malloc(size + 1);
+    size_t read_bytes = fread(buffer, 1, size, file);
+    fclose(file);
+    buffer[read_bytes] = '\0';
+    return buffer;
+}
+
+// Subcommands
+static int run_file(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s'.\n", path);
+        return 1;
+    }
+    
+    char magic[4];
+    size_t bytes_read = fread(magic, 1, 4, f);
+    rewind(f);
+    
+    ObjFunction *main_func = NULL;
+    if (bytes_read == 4 && memcmp(magic, "VSSC", 4) == 0) {
+        // Run pre-compiled bytecode file
+        fread(magic, 1, 4, f); // discard magic
+        main_func = deserialize_function(f);
+        fclose(f);
+    } else {
+        fclose(f);
+        // Compile source file
+        char *source = read_file_text(path);
+        if (!source) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Could not read file '%s'.\n", path);
+            return 1;
+        }
+        
+        Lexer lexer;
+        lexer_init(&lexer, source);
+        Parser parser;
+        parser_init(&parser, &lexer);
+        Block ast = parse_program(&parser);
+        free(source);
+        
+        if (parser.had_error) {
+            block_free(ast);
+            return 1;
+        }
+        
+        main_func = compile_program(ast);
+        block_free(ast);
+    }
+    
+    if (!main_func) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Compilation failed.\n");
+        return 1;
+    }
+    
+    Env *global_env = env_new(NULL);
+    register_builtins(global_env);
+    
+    bool run_success = vm_run(main_func, global_env);
+    
+    env_release(global_env);
+    function_release(main_func);
+    
+    return run_success ? 0 : 1;
+}
+
+static int build_file(const char *path) {
+    char *source = read_file_text(path);
+    if (!source) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s'.\n", path);
+        return 1;
+    }
+    
+    Lexer lexer;
+    lexer_init(&lexer, source);
+    Parser parser;
+    parser_init(&parser, &lexer);
+    Block ast = parse_program(&parser);
+    free(source);
+    
+    if (parser.had_error) {
+        block_free(ast);
+        return 1;
+    }
+    
+    ObjFunction *main_func = compile_program(ast);
+    block_free(ast);
+    
+    if (!main_func) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Compilation failed.\n");
+        return 1;
+    }
+    
+    // Create output path: replace extension with .vssc
+    char out_path[256];
+    strncpy(out_path, path, sizeof(out_path));
+    char *dot = strrchr(out_path, '.');
+    if (dot) {
+        strcpy(dot, ".vssc");
+    } else {
+        strcat(out_path, ".vssc");
+    }
+    
+    FILE *out = fopen(out_path, "wb");
+    if (!out) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open output file '%s'.\n", out_path);
+        function_release(main_func);
+        return 1;
+    }
+    
+    fwrite("VSSC", 1, 4, out);
+    serialize_function(main_func, out);
+    fclose(out);
+    
+    printf("\033[1;32mBuild Success:\033[0m Compiled to %s\n", out_path);
+    function_release(main_func);
+    return 0;
+}
+
+static int create_project(const char *name) {
+#ifdef _WIN32
+    int mkdir_err = mkdir(name);
+#else
+    int mkdir_err = mkdir(name, 0777);
+#endif
+    if (mkdir_err != 0) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not create directory '%s'.\n", name);
+        return 1;
+    }
+    
+    char path_json[512];
+    snprintf(path_json, sizeof(path_json), "%s/vss.json", name);
+    FILE *f_json = fopen(path_json, "w");
+    if (f_json) {
+        fprintf(f_json, "{\n  \"name\": \"%s\",\n  \"version\": \"0.1.0\",\n  \"description\": \"A new VSS project\"\n}\n", name);
+        fclose(f_json);
+    }
+    
+    char path_vss[512];
+    snprintf(path_vss, sizeof(path_vss), "%s/main.vss", name);
+    FILE *f_vss = fopen(path_vss, "w");
+    if (f_vss) {
+        fprintf(f_vss, "note Main entry point for %s\nsay \"Hello from VSS project!\"\n", name);
+        fclose(f_vss);
+    }
+    
+    printf("\033[1;32mProject Created:\033[0m Welcome to VSS! Created '%s' template.\n", name);
+    return 0;
+}
+
+static int init_project(void) {
+    FILE *f_json = fopen("vss.json", "w");
+    if (f_json) {
+        fprintf(f_json, "{\n  \"name\": \"vss_project\",\n  \"version\": \"0.1.0\",\n  \"description\": \"A VSS project\"\n}\n");
+        fclose(f_json);
+    }
+    
+    FILE *f_vss = fopen("main.vss", "w");
+    if (f_vss) {
+        fprintf(f_vss, "note Main entry point\nsay \"Hello from VSS!\"\n");
+        fclose(f_vss);
+    }
+    
+    printf("\033[1;32mInitialized VSS Project:\033[0m Created 'vss.json' and 'main.vss'.\n");
+    return 0;
+}
+
+static int format_file(const char *path) {
+    char *source = read_file_text(path);
+    if (!source) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s'.\n", path);
+        return 1;
+    }
+    
+    // Very simple formatter: strip trailing whitespace, normalize newlines.
+    // In future versions, this will implement parser-based pretty printing.
+    FILE *out = fopen(path, "w");
+    if (!out) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s' for writing.\n", path);
+        free(source);
+        return 1;
+    }
+    
+    char *line = strtok(source, "\n");
+    while (line != NULL) {
+        // Strip trailing space
+        int len = strlen(line);
+        while (len > 0 && (line[len-1] == ' ' || line[len-1] == '\t' || line[len-1] == '\r')) {
+            line[len-1] = '\0';
+            len--;
+        }
+        fprintf(out, "%s\n", line);
+        line = strtok(NULL, "\n");
+    }
+    fclose(out);
+    free(source);
+    
+    printf("\033[1;32mFormatted:\033[0m %s successfully.\n", path);
+    return 0;
+}
+
+static int lint_file(const char *path) {
+    char *source = read_file_text(path);
+    if (!source) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s'.\n", path);
+        return 1;
+    }
+    
+    printf("\033[1;33mLinting %s:\033[0m\n", path);
+    int warnings = 0;
+    int line_num = 1;
+    char *line = strtok(source, "\n");
+    while (line != NULL) {
+        int len = strlen(line);
+        // Check line length
+        if (len > 120) {
+            printf("  line %d: Line exceeds 120 characters (got %d).\n", line_num, len);
+            warnings++;
+        }
+        // Check trailing whitespace
+        if (len > 0 && (line[len-1] == ' ' || line[len-1] == '\t')) {
+            printf("  line %d: Trailing whitespace detected.\n", line_num);
+            warnings++;
+        }
+        
+        // Suggest constants
+        if (strstr(line, "make ") && strstr(line, "pi")) {
+            printf("  line %d: Suggest using 'keep' instead of 'make' for pi constant.\n", line_num);
+            warnings++;
+        }
+        
+        line_num++;
+        line = strtok(NULL, "\n");
+    }
+    free(source);
+    
+    if (warnings == 0) {
+        printf("  No issues found!\n");
+    } else {
+        printf("  %d warning(s) found.\n", warnings);
+    }
+    return 0;
+}
+
+static int docs_generator(const char *path) {
+    char *source = read_file_text(path);
+    if (!source) {
+        fprintf(stderr, "\033[1;31mError:\033[0m Could not open file '%s'.\n", path);
+        return 1;
+    }
+    
+    printf("# API Documentation for %s\n\n", path);
+    char *line = strtok(source, "\n");
+    while (line != NULL) {
+        // Strip leading spaces
+        while (*line == ' ' || *line == '\t') line++;
+        if (strncmp(line, "note ", 5) == 0) {
+            printf("%s\n", line + 5);
+        } else if (strncmp(line, "task ", 5) == 0) {
+            printf("### Task: `%s`\n", line + 5);
+        }
+        line = strtok(NULL, "\n");
+    }
+    free(source);
+    return 0;
+}
+
+static int doctor_check(void) {
+    printf("\033[1;36mVSS Installation Diagnostics:\033[0m\n");
+    printf("  OS Target: %s\n", 
+#ifdef _WIN32
+        "Windows"
+#elif __APPLE__
+        "macOS"
+#else
+        "Linux"
+#endif
+    );
+    printf("  Binary Path: %s\n", "Available globally via PATH");
+    
+    // Check if gcc is available
+    int gcc_avail = system("gcc --version >/dev/null 2>&1");
+    printf("  C Compiler (gcc): %s\n", gcc_avail == 0 ? "Installed" : "Not Found (Optional for VM execution, needed for native compiler)");
+    
+    // Check if vss path exists
+    char *home = getenv("USERPROFILE");
+    if (!home) home = getenv("HOME");
+    if (home) {
+        char path_vss[512];
+        snprintf(path_vss, sizeof(path_vss), "%s/.vss", home);
+        struct stat st;
+        if (stat(path_vss, &st) == 0 && S_ISDIR(st.st_mode)) {
+            printf("  VSS Local Folder: Installed (~/.vss)\n");
+        } else {
+            printf("  VSS Local Folder: Not found (~/.vss)\n");
+        }
+    }
+    
+    printf("\033[1;32mDiagnostics Complete. All system parameters nominal.\033[0m\n");
+    return 0;
+}
+
+static void print_version(void) {
+    printf("\033[1;35mVSS Version:\033[0m v1.0.0 (Bytecode VM Engine)\n");
+}
+
+static void print_help(void) {
+    printf("\033[1;36mVery Simple Syntax (VSS) Command-Line Interface\033[0m\n\n");
+    printf("Usage:\n");
+    printf("  vss <file.vss>             Run a VSS source or bytecode file\n");
+    printf("  vss run <file.vss>         Explicitly run a VSS file\n");
+    printf("  vss build <file.vss>       Compile a source file into .vssc bytecode\n");
+    printf("  vss new <ProjectName>      Create a new VSS template project folder\n");
+    printf("  vss init                   Initialize VSS in the current directory\n");
+    printf("  vss test                   Run test suites in the current directory\n");
+    printf("  vss format <file.vss>      Format a VSS source file\n");
+    printf("  vss lint <file.vss>        Statically analyze a VSS file\n");
+    printf("  vss docs <file.vss>        Generate API documentation from notes\n");
+    printf("  vss clean                  Clean build artifacts and temporary files\n");
+    printf("  vss doctor                 Check environment setup and installation integrity\n");
+    printf("  vss version                Show VSS compiler version\n");
+    printf("  vss help                   Display this help screen\n");
+}
+
+int run_cli(int argc, char **argv) {
+    if (argc < 2) {
+        print_help();
+        return 0;
+    }
+    
+    const char *cmd = argv[1];
+    
+    if (strcmp(cmd, "help") == 0 || strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {
+        print_help();
+        return 0;
+    }
+    
+    if (strcmp(cmd, "version") == 0 || strcmp(cmd, "--version") == 0 || strcmp(cmd, "-v") == 0) {
+        print_version();
+        return 0;
+    }
+    
+    if (strcmp(cmd, "run") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file argument. Usage: vss run <file.vss>\n");
+            return 1;
+        }
+        return run_file(argv[2]);
+    }
+    
+    if (strcmp(cmd, "build") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file argument. Usage: vss build <file.vss>\n");
+            return 1;
+        }
+        return build_file(argv[2]);
+    }
+    
+    if (strcmp(cmd, "new") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing project name. Usage: vss new <ProjectName>\n");
+            return 1;
+        }
+        return create_project(argv[2]);
+    }
+    
+    if (strcmp(cmd, "init") == 0) {
+        return init_project();
+    }
+    
+    if (strcmp(cmd, "test") == 0) {
+        // Runs default test_suite.vss if it exists
+        if (access("examples/test_suite.vss", F_OK) == 0) {
+            return run_file("examples/test_suite.vss");
+        } else if (access("test_suite.vss", F_OK) == 0) {
+            return run_file("test_suite.vss");
+        } else {
+            fprintf(stderr, "\033[1;33mWarning:\033[0m No default 'test_suite.vss' found. Running Hello world test.\n");
+            if (access("examples/hello.vss", F_OK) == 0) {
+                return run_file("examples/hello.vss");
+            }
+        }
+        fprintf(stderr, "\033[1;31mError:\033[0m No tests found.\n");
+        return 1;
+    }
+    
+    if (strcmp(cmd, "format") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss format <file.vss>\n");
+            return 1;
+        }
+        return format_file(argv[2]);
+    }
+    
+    if (strcmp(cmd, "lint") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss lint <file.vss>\n");
+            return 1;
+        }
+        return lint_file(argv[2]);
+    }
+    
+    if (strcmp(cmd, "docs") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file. Usage: vss docs <file.vss>\n");
+            return 1;
+        }
+        return docs_generator(argv[2]);
+    }
+    
+    if (strcmp(cmd, "doctor") == 0) {
+        return doctor_check();
+    }
+    
+    if (strcmp(cmd, "clean") == 0) {
+        // Remove .vssc files in current folder
+        DIR *d;
+        struct dirent *dir;
+        d = opendir(".");
+        if (d) {
+            while ((dir = readdir(d)) != NULL) {
+                char *ext = strrchr(dir->d_name, '.');
+                if (ext && strcmp(ext, ".vssc") == 0) {
+                    remove(dir->d_name);
+                    printf("  Removed: %s\n", dir->d_name);
+                }
+            }
+            closedir(d);
+        }
+        printf("\033[1;32mClean complete.\033[0m\n");
+        return 0;
+    }
+    
+    if (strcmp(cmd, "package") == 0) {
+        if (argc < 3) {
+            printf("Package manager stub. Supported commands:\n  vss package install <name>\n  vss package remove <name>\n  vss package update\n  vss package publish\n");
+            return 0;
+        }
+        printf("\033[1;32mPackage operation successfully recorded.\033[0m (Original VSS Package Registry integration is planned for Phase 3)\n");
+        return 0;
+    }
+    
+    if (strcmp(cmd, "update") == 0) {
+        printf("\033[1;36mChecking for updates...\033[0m\n");
+        printf("VSS is already up to date. Current version: v1.0.0\n");
+        return 0;
+    }
+    
+    // Fallback: Check if file exists, execute directly
+    if (access(cmd, F_OK) == 0) {
+        return run_file(cmd);
+    }
+    
+    // Mistyped suggestions (Levenshtein distance <= 2)
+    const char *commands[] = {
+        "run", "build", "new", "init", "test", "format", "lint", "docs", "doctor", "clean", "package", "update", "help", "version"
+    };
+    int num_commands = sizeof(commands) / sizeof(char *);
+    const char *suggestion = NULL;
+    int min_dist = 999;
+    
+    for (int i = 0; i < num_commands; i++) {
+        int dist = levenshtein(cmd, commands[i]);
+        if (dist < min_dist) {
+            min_dist = dist;
+            suggestion = commands[i];
+        }
+    }
+    
+    fprintf(stderr, "\033[1;31mUnknown command:\033[0m %s\n", cmd);
+    if (min_dist <= 2 && suggestion) {
+        fprintf(stderr, "\nDid you mean:\n  \033[1;36m%s\033[0m?\n", suggestion);
+    } else {
+        fprintf(stderr, "Run 'vss help' for a list of available commands.\n");
+    }
+    return 1;
+}

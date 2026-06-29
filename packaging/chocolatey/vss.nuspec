@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>vss</id>
+    <version>1.0.0</version>
+    <title>VSS Programming Language</title>
+    <authors>VSS Core Team</authors>
+    <projectUrl>https://github.com/siddharth-1118/vss-language</projectUrl>
+    <licenseUrl>https://github.com/siddharth-1118/vss-language/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>The VSS Programming Language Compiler and VM. A high-performance language featuring automatic reference counting and a custom stack-based VM.</description>
+    <tags>vss language compiler vm programming development</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

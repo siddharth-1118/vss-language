@@ -11,13 +11,17 @@ typedef enum {
     VAL_LIST,
     VAL_MAP,
     VAL_TASK,
-    VAL_NATIVE
+    VAL_NATIVE,
+    VAL_CLOSURE,
+    VAL_FUNCTION
 } ValueType;
 
 typedef struct ValString ValString;
 typedef struct ValList ValList;
 typedef struct ValMap ValMap;
 typedef struct ValTask ValTask;
+typedef struct ObjClosure ObjClosure;
+typedef struct ObjFunction ObjFunction;
 struct Stmt;
 struct Env;
 
@@ -33,6 +37,8 @@ typedef struct Value {
         ValMap *map;
         ValTask *task;
         NativeFnPtr native;
+        ObjClosure *closure;
+        ObjFunction *function;
     } as;
 } Value;
 
@@ -78,6 +84,8 @@ Value value_new_list(void);
 Value value_new_map(void);
 Value value_new_task(char **params, size_t param_count, struct Stmt **body, size_t body_count, struct Env *closure);
 Value value_new_native(NativeFnPtr func);
+Value value_new_closure(ObjClosure *closure);
+Value value_new_function(ObjFunction *func);
 
 // Reference counting
 void value_retain(Value v);

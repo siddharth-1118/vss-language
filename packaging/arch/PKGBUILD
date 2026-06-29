@@ -1,0 +1,23 @@
+# Maintainer: VSS Core Team <maintainers@vss-language.org>
+pkgname=vss
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="The VSS Programming Language Compiler and VM"
+arch=('x86_64')
+url="https://github.com/siddharth-1118/vss-language"
+license=('MIT')
+depends=('glibc')
+makedepends=('gcc' 'make')
+source=("https://github.com/siddharth-1118/vss-language/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}/vss"
+  make clean
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  install -Dm755 vss/vss "${pkgdir}/usr/bin/vss"
+}

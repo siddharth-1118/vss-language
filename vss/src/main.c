@@ -11,6 +11,9 @@
 #include "interpreter.h"
 #include "env.h"
 #include "ast.h"
+#include "compiler.h"
+#include "vm.h"
+#include "cli.h"
 
 static char *read_file_text(const char *path) {
     FILE *file = fopen(path, "rb");
@@ -130,16 +133,15 @@ static void start_server(int port) {
                             parser_init(&parser, &lexer);
                             Block ast = parse_program(&parser);
                             if (!parser.had_error) {
+                                ObjFunction *main_func = compile_program(ast);
                                 Env *global_env = env_new(NULL);
                                 register_builtins(global_env);
-                                FlowResult result = interpret(ast, global_env);
-                                if (result.type == FLOW_ERROR) {
-                                    printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>Runtime Error: %s</div>", result.error_msg);
-                                    free(result.error_msg);
-                                } else if (result.type == FLOW_SEND) {
-                                    value_release(result.value);
+                                bool run_success = vm_run(main_func, global_env);
+                                if (!run_success) {
+                                    printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>VM Runtime Error</div>");
                                 }
                                 env_release(global_env);
+                                function_release(main_func);
                             } else {
                                 printf("\n<div style='color:red;border:1px solid red;padding:10px;margin-top:10px;'>Parser Syntax Error</div>");
                             }
@@ -186,98 +188,11 @@ static void start_server(int port) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <file.vss>, %s --serve, or %s --version\n", argv[0], argv[0], argv[0]);
-        return 1;
-    }
-
-    if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0) {
-        printf("VSS v1.0.0\n");
-        return 0;
-    }
-
-    if (strcmp(argv[1], "--serve") == 0 || strcmp(argv[1], "-s") == 0) {
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+    if (argc == 2 && (strcmp(argv[1], "--serve") == 0 || strcmp(argv[1], "-s") == 0)) {
         start_server(8080);
         return 0;
     }
-
-    const char *filename = argv[1];
-    size_t fn_len = strlen(filename);
-    bool is_htmvss = false;
-    char *out_html_path = NULL;
-
-    if (fn_len > 7 && strcmp(filename + fn_len - 7, ".htmvss") == 0) {
-        is_htmvss = true;
-        out_html_path = malloc(fn_len - 7 + 6); // Replace .htmvss with .html
-        memcpy(out_html_path, filename, fn_len - 7);
-        strcpy(out_html_path + fn_len - 7, ".html");
-    }
-
-    char *source = read_file_text(filename);
-    if (!source) {
-        if (is_htmvss) free(out_html_path);
-        return 1;
-    }
-
-    Lexer lexer;
-    lexer_init(&lexer, source);
-
-    Parser parser;
-    parser_init(&parser, &lexer);
-
-    Block ast = parse_program(&parser);
-
-    if (parser.had_error) {
-        if (is_htmvss) free(out_html_path);
-        block_free(ast);
-        free(source);
-        return 1;
-    }
-
-    if (is_htmvss) {
-        if (!freopen(out_html_path, "w", stdout)) {
-            fprintf(stderr, "Could not redirect output to %s\n", out_html_path);
-            free(out_html_path);
-            block_free(ast);
-            free(source);
-            return 1;
-        }
-    }
-
-    Env *global_env = env_new(NULL);
-    register_builtins(global_env);
-
-    FlowResult result = interpret(ast, global_env);
-
-    int exit_code = 0;
-    if (result.type == FLOW_ERROR) {
-        fprintf(stderr, "runtime error line %d, col %d: %s\n", result.line, result.column, result.error_msg);
-        free(result.error_msg);
-        exit_code = 1;
-    } else if (result.type == FLOW_SEND) {
-        fprintf(stderr, "runtime error line %d, col %d: 'send' statement outside task.\n", result.line, result.column);
-        value_release(result.value);
-        exit_code = 1;
-    } else if (result.type == FLOW_LEAVE) {
-        fprintf(stderr, "runtime error line %d, col %d: 'leave' statement outside loop.\n", result.line, result.column);
-        exit_code = 1;
-    } else if (result.type == FLOW_SKIP) {
-        fprintf(stderr, "runtime error line %d, col %d: 'skip' statement outside loop.\n", result.line, result.column);
-        exit_code = 1;
-    }
-
-    env_release(global_env);
-    block_free(ast);
-    free(source);
-
-    if (is_htmvss) {
-        fprintf(stderr, "HTML generated successfully: %s\n", out_html_path);
-        // Automatically open the HTML page in Windows browser via explorer.exe
-        char cmd[512];
-        snprintf(cmd, sizeof(cmd), "explorer.exe %s 2>/dev/null", out_html_path);
-        system(cmd);
-        free(out_html_path);
-    }
-
-    return exit_code;
+    return run_cli(argc, argv);
 }

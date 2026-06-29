@@ -1,0 +1,13 @@
+Source: vss
+Section: devel
+Priority: optional
+Maintainer: VSS Core Team <maintainers@vss-language.org>
+Build-Depends: debhelper (>= 10), make, gcc
+Standards-Version: 4.1.2
+
+Package: vss
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: The VSS Programming Language Compiler and VM
+ VSS is a production-ready, high-performance programming language featuring
+ automatic reference counting and a custom stack-based virtual machine.

@@ -1,0 +1,672 @@
+== main_program ==
+0000    4 OP_CONSTANT         0 '10
+'
+0002    | OP_DEFINE_GLOBAL    1 'a
+' (const: no)
+0005    5 OP_CONSTANT         2 '20
+'
+0007    | OP_DEFINE_GLOBAL    3 'b
+' (const: no)
+0010    6 OP_GET_GLOBAL       4 'a
+'
+0012    | OP_GET_GLOBAL       5 'b
+'
+0014    | OP_ADD
+0015    | OP_CONSTANT         6 '30
+'
+0017    | OP_SAME_AS
+0018    | OP_JUMP_IF_FALSE   18 -> 28
+0021    | OP_POP
+0022    7 OP_CONSTANT         7 'Test 1 passed: addition
+'
+0024    | OP_SAY
+0025    6 OP_JUMP            25 -> 32
+0028    | OP_POP
+0029    9 OP_CONSTANT         8 'Test 1 failed: addition
+'
+0031    | OP_SAY
+0032   13 OP_CONSTANT         9 '0
+'
+0034    | OP_DEFINE_GLOBAL   10 'sum
+' (const: no)
+0037   14 OP_CONSTANT        11 '1
+'
+0039    | OP_CONSTANT        12 '5
+'
+0041    | OP_GET_LOCAL        1
+0043    | OP_GET_LOCAL        2
+0045    | OP_AT_MOST
+0046    | OP_JUMP_IF_FALSE   46 -> 101
+0049    | OP_POP
+0050    | OP_GET_LOCAL        1
+0052    | OP_GET_LOCAL        3
+0054    | OP_GET_LOCAL        2
+0056    | OP_AT_MOST
+0057    | OP_JUMP_IF_FALSE   57 -> 96
+0060    | OP_POP
+0061   15 OP_GET_LOCAL        3
+0063    | OP_CONSTANT        13 '3
+'
+0065    | OP_SAME_AS
+0066    | OP_JUMP_IF_FALSE   66 -> 76
+0069    | OP_POP
+0070   16 OP_JUMP            70 -> 85
+0073   15 OP_JUMP            73 -> 77
+0076    | OP_POP
+0077   18 OP_GET_GLOBAL      14 'sum
+'
+0079    | OP_GET_LOCAL        3
+0081    | OP_ADD
+0082    | OP_SET_GLOBAL      15 'sum
+'
+0084    | OP_POP
+0085   14 OP_GET_LOCAL        3
+0087    | OP_CONSTANT        16 '1
+'
+0089    | OP_ADD
+0090    | OP_SET_LOCAL        3
+0092    | OP_POP
+0093    | OP_LOOP            93 -> 52
+0096    | OP_POP
+0097    | OP_POP
+0098    | OP_JUMP            98 -> 150
+0101    | OP_POP
+0102    | OP_GET_LOCAL        1
+0104    | OP_GET_LOCAL        3
+0106    | OP_GET_LOCAL        2
+0108    | OP_AT_LEAST
+0109    | OP_JUMP_IF_FALSE  109 -> 148
+0112    | OP_POP
+0113   15 OP_GET_LOCAL        3
+0115    | OP_CONSTANT        17 '3
+'
+0117    | OP_SAME_AS
+0118    | OP_JUMP_IF_FALSE  118 -> 128
+0121    | OP_POP
+0122   16 OP_JUMP           122 -> 137
+0125   15 OP_JUMP           125 -> 129
+0128    | OP_POP
+0129   18 OP_GET_GLOBAL      18 'sum
+'
+0131    | OP_GET_LOCAL        3
+0133    | OP_ADD
+0134    | OP_SET_GLOBAL      19 'sum
+'
+0136    | OP_POP
+0137   14 OP_GET_LOCAL        3
+0139    | OP_CONSTANT        20 '1
+'
+0141    | OP_SUB
+0142    | OP_SET_LOCAL        3
+0144    | OP_POP
+0145    | OP_LOOP           145 -> 104
+0148    | OP_POP
+0149    | OP_POP
+0150    | OP_POP
+0151    | OP_POP
+0152   20 OP_GET_GLOBAL      21 'sum
+'
+0154    | OP_CONSTANT        22 '12
+'
+0156    | OP_SAME_AS
+0157    | OP_JUMP_IF_FALSE  157 -> 167
+0160    | OP_POP
+0161   21 OP_CONSTANT        23 'Test 2 passed: range loop with skip
+'
+0163    | OP_SAY
+0164   20 OP_JUMP           164 -> 177
+0167    | OP_POP
+0168   23 OP_CONSTANT        24 'Test 2 failed: range loop with skip (got 
+'
+0170    | OP_GET_GLOBAL      25 'sum
+'
+0172    | OP_ADD
+0173    | OP_CONSTANT        26 ')
+'
+0175    | OP_ADD
+0176    | OP_SAY
+0177   27 OP_CONSTANT        27 'pen
+'
+0179    | OP_CONSTANT        28 'book
+'
+0181    | OP_BUILD_LIST       2
+0183    | OP_DEFINE_GLOBAL   29 'items
+' (const: no)
+0186   28 OP_CONSTANT        30 'cup
+'
+0188    | OP_GET_GLOBAL      31 'items
+'
+0190    | OP_PUT_ITEM
+0191   29 OP_GET_GLOBAL      32 '__size
+'
+0193    | OP_GET_GLOBAL      33 'items
+'
+0195    | OP_CALL             1
+0197    | OP_CONSTANT        34 '3
+'
+0199    | OP_SAME_AS
+0200    | OP_JUMP_IF_FALSE  200 -> 212
+0203    | OP_POP
+0204    | OP_GET_GLOBAL      35 'items
+'
+0206    | OP_CONSTANT        36 '2
+'
+0208    | OP_GET_ITEM
+0209    | OP_CONSTANT        37 'cup
+'
+0211    | OP_SAME_AS
+0212    | OP_JUMP_IF_FALSE  212 -> 222
+0215    | OP_POP
+0216   30 OP_CONSTANT        38 'Test 3 passed: list operations
+'
+0218    | OP_SAY
+0219   29 OP_JUMP           219 -> 226
+0222    | OP_POP
+0223   32 OP_CONSTANT        39 'Test 3 failed: list operations
+'
+0225    | OP_SAY
+0226   36 OP_CONSTANT        40 'name
+'
+0228   37 OP_CONSTANT        41 'Asha
+'
+0230   36 OP_CONSTANT        42 'age
+'
+0232   38 OP_CONSTANT        43 '22
+'
+0234   36 OP_BUILD_MAP        2
+0236    | OP_DEFINE_GLOBAL   44 'user
+' (const: no)
+0239   40 OP_GET_GLOBAL      45 'user
+'
+0241    | OP_CONSTANT        46 'city
+'
+0243    | OP_CONSTANT        47 'Delhi
+'
+0245    | OP_SET_FIELD
+0246   41 OP_GET_GLOBAL      48 'user
+'
+0248    | OP_CONSTANT        49 'name
+'
+0250    | OP_GET_FIELD
+0251    | OP_CONSTANT        50 'Asha
+'
+0253    | OP_SAME_AS
+0254    | OP_JUMP_IF_FALSE  254 -> 266
+0257    | OP_POP
+0258    | OP_GET_GLOBAL      51 'user
+'
+0260    | OP_CONSTANT        52 'city
+'
+0262    | OP_GET_FIELD
+0263    | OP_CONSTANT        53 'Delhi
+'
+0265    | OP_SAME_AS
+0266    | OP_JUMP_IF_FALSE  266 -> 276
+0269    | OP_POP
+0270   42 OP_CONSTANT        54 'Test 4 passed: map operations
+'
+0272    | OP_SAY
+0273   41 OP_JUMP           273 -> 280
+0276    | OP_POP
+0277   44 OP_CONSTANT        55 'Test 4 failed: map operations
+'
+0279    | OP_SAY
+0280   48 OP_CONSTANT        56 'green
+'
+0282    | OP_DEFINE_GLOBAL   57 'color
+' (const: no)
+0285   49 OP_CONSTANT        58 '
+'
+0287    | OP_DEFINE_GLOBAL   59 'result
+' (const: no)
+0290   50 OP_GET_GLOBAL      60 'color
+'
+0292    | OP_GET_LOCAL        1
+0294   51 OP_CONSTANT        61 'red
+'
+0296   50 OP_SAME_AS
+0297    | OP_JUMP_IF_FALSE  297 -> 309
+0300    | OP_POP
+0301   52 OP_CONSTANT        62 'stop
+'
+0303    | OP_SET_GLOBAL      63 'result
+'
+0305    | OP_POP
+0306   50 OP_JUMP           306 -> 333
+0309    | OP_POP
+0310    | OP_GET_LOCAL        1
+0312   53 OP_CONSTANT        64 'green
+'
+0314   50 OP_SAME_AS
+0315    | OP_JUMP_IF_FALSE  315 -> 327
+0318    | OP_POP
+0319   54 OP_CONSTANT        65 'go
+'
+0321    | OP_SET_GLOBAL      66 'result
+'
+0323    | OP_POP
+0324   50 OP_JUMP           324 -> 333
+0327    | OP_POP
+0328   56 OP_CONSTANT        67 'unknown
+'
+0330    | OP_SET_GLOBAL      68 'result
+'
+0332    | OP_POP
+0333   50 OP_POP
+0334   58 OP_GET_GLOBAL      69 'result
+'
+0336    | OP_CONSTANT        70 'go
+'
+0338    | OP_SAME_AS
+0339    | OP_JUMP_IF_FALSE  339 -> 349
+0342    | OP_POP
+0343   59 OP_CONSTANT        71 'Test 5 passed: choose statement
+'
+0345    | OP_SAY
+0346   58 OP_JUMP           346 -> 353
+0349    | OP_POP
+0350   61 OP_CONSTANT        72 'Test 5 failed: choose statement
+'
+0352    | OP_SAY
+0353   65 OP_FALSE
+0354    | OP_DEFINE_GLOBAL   73 'caught
+' (const: no)
+0357   66 OP_ATTEMPT        357 -> 370
+0360   68 OP_GET_GLOBAL      74 'items
+'
+0362    | OP_CONSTANT        75 '10
+'
+0364    | OP_GET_ITEM
+0365   66 OP_POP
+0366    | OP_END_ATTEMPT
+0367    | OP_JUMP           367 -> 375
+0370   70 OP_TRUE
+0371    | OP_SET_GLOBAL      76 'caught
+'
+0373    | OP_POP
+0374   66 OP_POP
+0375   72 OP_GET_GLOBAL      77 'caught
+'
+0377    | OP_TRUE
+0378    | OP_SAME_AS
+0379    | OP_JUMP_IF_FALSE  379 -> 389
+0382    | OP_POP
+0383   73 OP_CONSTANT        78 'Test 6 passed: error handling
+'
+0385    | OP_SAY
+0386   72 OP_JUMP           386 -> 393
+0389    | OP_POP
+0390   75 OP_CONSTANT        79 'Test 6 failed: error handling
+'
+0392    | OP_SAY
+0393   79 OP_GET_GLOBAL      80 '__write
+'
+0395    | OP_CONSTANT        81 'file contents
+'
+0397    | OP_CONSTANT        82 'temp_test.txt
+'
+0399    | OP_CALL             2
+0401    | OP_POP
+0402   80 OP_GET_GLOBAL      83 '__exists
+'
+0404    | OP_CONSTANT        84 'temp_test.txt
+'
+0406    | OP_CALL             1
+0408    | OP_JUMP_IF_FALSE  408 -> 448
+0411    | OP_POP
+0412   81 OP_GET_GLOBAL      85 '__read
+'
+0414    | OP_CONSTANT        86 'temp_test.txt
+'
+0416    | OP_CALL             1
+0418   82 OP_GET_LOCAL        1
+0420    | OP_CONSTANT        87 'file contents
+'
+0422    | OP_SAME_AS
+0423    | OP_JUMP_IF_FALSE  423 -> 433
+0426    | OP_POP
+0427   83 OP_CONSTANT        88 'Test 7 passed: file write and read
+'
+0429    | OP_SAY
+0430   82 OP_JUMP           430 -> 437
+0433    | OP_POP
+0434   85 OP_CONSTANT        89 'Test 7 failed: file read content mismatch
+'
+0436    | OP_SAY
+0437   87 OP_GET_GLOBAL      90 '__erase
+'
+0439    | OP_CONSTANT        91 'temp_test.txt
+'
+0441    | OP_CALL             1
+0443    | OP_POP
+0444   80 OP_POP
+0445    | OP_JUMP           445 -> 452
+0448    | OP_POP
+0449   89 OP_CONSTANT        92 'Test 7 failed: file does not exist after write
+'
+0451    | OP_SAY
+0452    0 OP_EMPTY
+0453    | OP_RETURN
+RUN_IP: 0000 (stack_depth=1)
+RUN_IP: 0002 (stack_depth=2)
+RUN_IP: 0005 (stack_depth=1)
+RUN_IP: 0007 (stack_depth=2)
+RUN_IP: 0010 (stack_depth=1)
+RUN_IP: 0012 (stack_depth=2)
+RUN_IP: 0014 (stack_depth=3)
+RUN_IP: 0015 (stack_depth=2)
+RUN_IP: 0017 (stack_depth=3)
+DEBUG_SAME: '30' SAME_AS '30' -> yes
+RUN_IP: 0018 (stack_depth=2)
+RUN_IP: 0021 (stack_depth=2)
+RUN_IP: 0022 (stack_depth=1)
+RUN_IP: 0024 (stack_depth=2)
+Test 1 passed: addition
+RUN_IP: 0025 (stack_depth=1)
+RUN_IP: 0032 (stack_depth=1)
+RUN_IP: 0034 (stack_depth=2)
+RUN_IP: 0037 (stack_depth=1)
+RUN_IP: 0039 (stack_depth=2)
+RUN_IP: 0041 (stack_depth=3)
+DEBUG_GET_LOCAL: slot=1, value='1'
+RUN_IP: 0043 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0045 (stack_depth=5)
+RUN_IP: 0046 (stack_depth=4)
+RUN_IP: 0049 (stack_depth=4)
+RUN_IP: 0050 (stack_depth=3)
+DEBUG_GET_LOCAL: slot=1, value='1'
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='1'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0060 (stack_depth=5)
+RUN_IP: 0061 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='1'
+RUN_IP: 0063 (stack_depth=5)
+RUN_IP: 0065 (stack_depth=6)
+DEBUG_SAME: '1' SAME_AS '3' -> no
+RUN_IP: 0066 (stack_depth=5)
+RUN_IP: 0076 (stack_depth=5)
+RUN_IP: 0077 (stack_depth=4)
+RUN_IP: 0079 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=3, value='1'
+RUN_IP: 0081 (stack_depth=6)
+RUN_IP: 0082 (stack_depth=5)
+RUN_IP: 0084 (stack_depth=5)
+RUN_IP: 0085 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='1'
+RUN_IP: 0087 (stack_depth=5)
+RUN_IP: 0089 (stack_depth=6)
+RUN_IP: 0090 (stack_depth=5)
+RUN_IP: 0092 (stack_depth=5)
+RUN_IP: 0093 (stack_depth=4)
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='2'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0060 (stack_depth=5)
+RUN_IP: 0061 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='2'
+RUN_IP: 0063 (stack_depth=5)
+RUN_IP: 0065 (stack_depth=6)
+DEBUG_SAME: '2' SAME_AS '3' -> no
+RUN_IP: 0066 (stack_depth=5)
+RUN_IP: 0076 (stack_depth=5)
+RUN_IP: 0077 (stack_depth=4)
+RUN_IP: 0079 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=3, value='2'
+RUN_IP: 0081 (stack_depth=6)
+RUN_IP: 0082 (stack_depth=5)
+RUN_IP: 0084 (stack_depth=5)
+RUN_IP: 0085 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='2'
+RUN_IP: 0087 (stack_depth=5)
+RUN_IP: 0089 (stack_depth=6)
+RUN_IP: 0090 (stack_depth=5)
+RUN_IP: 0092 (stack_depth=5)
+RUN_IP: 0093 (stack_depth=4)
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='3'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0060 (stack_depth=5)
+RUN_IP: 0061 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='3'
+RUN_IP: 0063 (stack_depth=5)
+RUN_IP: 0065 (stack_depth=6)
+DEBUG_SAME: '3' SAME_AS '3' -> yes
+RUN_IP: 0066 (stack_depth=5)
+RUN_IP: 0069 (stack_depth=5)
+RUN_IP: 0070 (stack_depth=4)
+RUN_IP: 0085 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='3'
+RUN_IP: 0087 (stack_depth=5)
+RUN_IP: 0089 (stack_depth=6)
+RUN_IP: 0090 (stack_depth=5)
+RUN_IP: 0092 (stack_depth=5)
+RUN_IP: 0093 (stack_depth=4)
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='4'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0060 (stack_depth=5)
+RUN_IP: 0061 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='4'
+RUN_IP: 0063 (stack_depth=5)
+RUN_IP: 0065 (stack_depth=6)
+DEBUG_SAME: '4' SAME_AS '3' -> no
+RUN_IP: 0066 (stack_depth=5)
+RUN_IP: 0076 (stack_depth=5)
+RUN_IP: 0077 (stack_depth=4)
+RUN_IP: 0079 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=3, value='4'
+RUN_IP: 0081 (stack_depth=6)
+RUN_IP: 0082 (stack_depth=5)
+RUN_IP: 0084 (stack_depth=5)
+RUN_IP: 0085 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='4'
+RUN_IP: 0087 (stack_depth=5)
+RUN_IP: 0089 (stack_depth=6)
+RUN_IP: 0090 (stack_depth=5)
+RUN_IP: 0092 (stack_depth=5)
+RUN_IP: 0093 (stack_depth=4)
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='5'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0060 (stack_depth=5)
+RUN_IP: 0061 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='5'
+RUN_IP: 0063 (stack_depth=5)
+RUN_IP: 0065 (stack_depth=6)
+DEBUG_SAME: '5' SAME_AS '3' -> no
+RUN_IP: 0066 (stack_depth=5)
+RUN_IP: 0076 (stack_depth=5)
+RUN_IP: 0077 (stack_depth=4)
+RUN_IP: 0079 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=3, value='5'
+RUN_IP: 0081 (stack_depth=6)
+RUN_IP: 0082 (stack_depth=5)
+RUN_IP: 0084 (stack_depth=5)
+RUN_IP: 0085 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='5'
+RUN_IP: 0087 (stack_depth=5)
+RUN_IP: 0089 (stack_depth=6)
+RUN_IP: 0090 (stack_depth=5)
+RUN_IP: 0092 (stack_depth=5)
+RUN_IP: 0093 (stack_depth=4)
+RUN_IP: 0052 (stack_depth=4)
+DEBUG_GET_LOCAL: slot=3, value='6'
+RUN_IP: 0054 (stack_depth=5)
+DEBUG_GET_LOCAL: slot=2, value='5'
+RUN_IP: 0056 (stack_depth=6)
+RUN_IP: 0057 (stack_depth=5)
+RUN_IP: 0096 (stack_depth=5)
+RUN_IP: 0097 (stack_depth=4)
+RUN_IP: 0098 (stack_depth=3)
+RUN_IP: 0150 (stack_depth=3)
+RUN_IP: 0151 (stack_depth=2)
+RUN_IP: 0152 (stack_depth=1)
+RUN_IP: 0154 (stack_depth=2)
+RUN_IP: 0156 (stack_depth=3)
+DEBUG_SAME: '12' SAME_AS '12' -> yes
+RUN_IP: 0157 (stack_depth=2)
+RUN_IP: 0160 (stack_depth=2)
+RUN_IP: 0161 (stack_depth=1)
+RUN_IP: 0163 (stack_depth=2)
+Test 2 passed: range loop with skip
+RUN_IP: 0164 (stack_depth=1)
+RUN_IP: 0177 (stack_depth=1)
+RUN_IP: 0179 (stack_depth=2)
+RUN_IP: 0181 (stack_depth=3)
+RUN_IP: 0183 (stack_depth=2)
+RUN_IP: 0186 (stack_depth=1)
+RUN_IP: 0188 (stack_depth=2)
+RUN_IP: 0190 (stack_depth=3)
+RUN_IP: 0191 (stack_depth=1)
+RUN_IP: 0193 (stack_depth=2)
+RUN_IP: 0195 (stack_depth=3)
+RUN_IP: 0197 (stack_depth=2)
+RUN_IP: 0199 (stack_depth=3)
+DEBUG_SAME: '3' SAME_AS '3' -> yes
+RUN_IP: 0200 (stack_depth=2)
+RUN_IP: 0203 (stack_depth=2)
+RUN_IP: 0204 (stack_depth=1)
+RUN_IP: 0206 (stack_depth=2)
+RUN_IP: 0208 (stack_depth=3)
+RUN_IP: 0209 (stack_depth=2)
+RUN_IP: 0211 (stack_depth=3)
+DEBUG_SAME: 'cup' SAME_AS 'cup' -> yes
+RUN_IP: 0212 (stack_depth=2)
+RUN_IP: 0215 (stack_depth=2)
+RUN_IP: 0216 (stack_depth=1)
+RUN_IP: 0218 (stack_depth=2)
+Test 3 passed: list operations
+RUN_IP: 0219 (stack_depth=1)
+RUN_IP: 0226 (stack_depth=1)
+RUN_IP: 0228 (stack_depth=2)
+RUN_IP: 0230 (stack_depth=3)
+RUN_IP: 0232 (stack_depth=4)
+RUN_IP: 0234 (stack_depth=5)
+RUN_IP: 0236 (stack_depth=2)
+RUN_IP: 0239 (stack_depth=1)
+RUN_IP: 0241 (stack_depth=2)
+RUN_IP: 0243 (stack_depth=3)
+RUN_IP: 0245 (stack_depth=4)
+RUN_IP: 0246 (stack_depth=1)
+RUN_IP: 0248 (stack_depth=2)
+RUN_IP: 0250 (stack_depth=3)
+RUN_IP: 0251 (stack_depth=2)
+RUN_IP: 0253 (stack_depth=3)
+DEBUG_SAME: 'Asha' SAME_AS 'Asha' -> yes
+RUN_IP: 0254 (stack_depth=2)
+RUN_IP: 0257 (stack_depth=2)
+RUN_IP: 0258 (stack_depth=1)
+RUN_IP: 0260 (stack_depth=2)
+RUN_IP: 0262 (stack_depth=3)
+RUN_IP: 0263 (stack_depth=2)
+RUN_IP: 0265 (stack_depth=3)
+DEBUG_SAME: 'Delhi' SAME_AS 'Delhi' -> yes
+RUN_IP: 0266 (stack_depth=2)
+RUN_IP: 0269 (stack_depth=2)
+RUN_IP: 0270 (stack_depth=1)
+RUN_IP: 0272 (stack_depth=2)
+Test 4 passed: map operations
+RUN_IP: 0273 (stack_depth=1)
+RUN_IP: 0280 (stack_depth=1)
+RUN_IP: 0282 (stack_depth=2)
+RUN_IP: 0285 (stack_depth=1)
+RUN_IP: 0287 (stack_depth=2)
+RUN_IP: 0290 (stack_depth=1)
+RUN_IP: 0292 (stack_depth=2)
+DEBUG_GET_LOCAL: slot=1, value='green'
+RUN_IP: 0294 (stack_depth=3)
+RUN_IP: 0296 (stack_depth=4)
+DEBUG_SAME: 'green' SAME_AS 'red' -> no
+RUN_IP: 0297 (stack_depth=3)
+RUN_IP: 0309 (stack_depth=3)
+RUN_IP: 0310 (stack_depth=2)
+DEBUG_GET_LOCAL: slot=1, value='green'
+RUN_IP: 0312 (stack_depth=3)
+RUN_IP: 0314 (stack_depth=4)
+DEBUG_SAME: 'green' SAME_AS 'green' -> yes
+RUN_IP: 0315 (stack_depth=3)
+RUN_IP: 0318 (stack_depth=3)
+RUN_IP: 0319 (stack_depth=2)
+RUN_IP: 0321 (stack_depth=3)
+RUN_IP: 0323 (stack_depth=3)
+RUN_IP: 0324 (stack_depth=2)
+RUN_IP: 0333 (stack_depth=2)
+RUN_IP: 0334 (stack_depth=1)
+RUN_IP: 0336 (stack_depth=2)
+RUN_IP: 0338 (stack_depth=3)
+DEBUG_SAME: 'go' SAME_AS 'go' -> yes
+RUN_IP: 0339 (stack_depth=2)
+RUN_IP: 0342 (stack_depth=2)
+RUN_IP: 0343 (stack_depth=1)
+RUN_IP: 0345 (stack_depth=2)
+Test 5 passed: choose statement
+RUN_IP: 0346 (stack_depth=1)
+RUN_IP: 0353 (stack_depth=1)
+RUN_IP: 0354 (stack_depth=2)
+RUN_IP: 0357 (stack_depth=1)
+RUN_IP: 0360 (stack_depth=1)
+RUN_IP: 0362 (stack_depth=2)
+RUN_IP: 0364 (stack_depth=3)
+RUN_IP: 0370 (stack_depth=2)
+RUN_IP: 0371 (stack_depth=3)
+RUN_IP: 0373 (stack_depth=3)
+RUN_IP: 0374 (stack_depth=2)
+RUN_IP: 0375 (stack_depth=1)
+RUN_IP: 0377 (stack_depth=2)
+RUN_IP: 0378 (stack_depth=3)
+DEBUG_SAME: 'yes' SAME_AS 'yes' -> yes
+RUN_IP: 0379 (stack_depth=2)
+RUN_IP: 0382 (stack_depth=2)
+RUN_IP: 0383 (stack_depth=1)
+RUN_IP: 0385 (stack_depth=2)
+Test 6 passed: error handling
+RUN_IP: 0386 (stack_depth=1)
+RUN_IP: 0393 (stack_depth=1)
+RUN_IP: 0395 (stack_depth=2)
+RUN_IP: 0397 (stack_depth=3)
+RUN_IP: 0399 (stack_depth=4)
+RUN_IP: 0401 (stack_depth=2)
+RUN_IP: 0402 (stack_depth=1)
+RUN_IP: 0404 (stack_depth=2)
+RUN_IP: 0406 (stack_depth=3)
+RUN_IP: 0408 (stack_depth=2)
+RUN_IP: 0411 (stack_depth=2)
+RUN_IP: 0412 (stack_depth=1)
+RUN_IP: 0414 (stack_depth=2)
+RUN_IP: 0416 (stack_depth=3)
+RUN_IP: 0418 (stack_depth=2)
+DEBUG_GET_LOCAL: slot=1, value='file contents'
+RUN_IP: 0420 (stack_depth=3)
+RUN_IP: 0422 (stack_depth=4)
+DEBUG_SAME: 'file contents' SAME_AS 'file contents' -> yes
+RUN_IP: 0423 (stack_depth=3)
+RUN_IP: 0426 (stack_depth=3)
+RUN_IP: 0427 (stack_depth=2)
+RUN_IP: 0429 (stack_depth=3)
+Test 7 passed: file write and read
+RUN_IP: 0430 (stack_depth=2)
+RUN_IP: 0437 (stack_depth=2)
+RUN_IP: 0439 (stack_depth=3)
+RUN_IP: 0441 (stack_depth=4)
+RUN_IP: 0443 (stack_depth=3)
+RUN_IP: 0444 (stack_depth=2)
+RUN_IP: 0445 (stack_depth=1)
+RUN_IP: 0452 (stack_depth=1)
+RUN_IP: 0453 (stack_depth=2)

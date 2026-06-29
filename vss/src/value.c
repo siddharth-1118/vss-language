@@ -5,6 +5,7 @@
 #include "value.h"
 #include "env.h"
 #include "ast.h"
+#include "object.h"
 
 // Helper to duplicate string safely
 static char *safe_strdup(const char *s) {
@@ -100,6 +101,20 @@ Value value_new_native(NativeFnPtr func) {
     return v;
 }
 
+Value value_new_closure(ObjClosure *closure) {
+    Value v;
+    v.type = VAL_CLOSURE;
+    v.as.closure = closure;
+    return v;
+}
+
+Value value_new_function(ObjFunction *func) {
+    Value v;
+    v.type = VAL_FUNCTION;
+    v.as.function = func;
+    return v;
+}
+
 void value_retain(Value v) {
     switch (v.type) {
         case VAL_STRING:
@@ -113,6 +128,12 @@ void value_retain(Value v) {
             break;
         case VAL_TASK:
             v.as.task->ref_count++;
+            break;
+        case VAL_CLOSURE:
+            closure_retain(v.as.closure);
+            break;
+        case VAL_FUNCTION:
+            function_retain(v.as.function);
             break;
         default:
             break;
@@ -163,6 +184,12 @@ void value_release(Value v) {
                 free(v.as.task);
             }
             break;
+        case VAL_CLOSURE:
+            closure_release(v.as.closure);
+            break;
+        case VAL_FUNCTION:
+            function_release(v.as.function);
+            break;
         default:
             break;
     }
@@ -208,6 +235,10 @@ bool value_same_as(Value a, Value b) {
             return a.as.task == b.as.task;
         case VAL_NATIVE:
             return a.as.native == b.as.native;
+        case VAL_CLOSURE:
+            return a.as.closure == b.as.closure;
+        case VAL_FUNCTION:
+            return a.as.function == b.as.function;
     }
     return false;
 }
@@ -288,6 +319,10 @@ char *value_to_string(Value v) {
             return safe_strdup("<task>");
         case VAL_NATIVE:
             return safe_strdup("<native task>");
+        case VAL_CLOSURE:
+            return safe_strdup("<task>");
+        case VAL_FUNCTION:
+            return safe_strdup("<task>");
     }
     return safe_strdup("<unknown>");
 }

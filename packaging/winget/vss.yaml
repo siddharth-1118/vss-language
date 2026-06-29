@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+PackageIdentifier: VSS.VSS
+PackageVersion: 1.0.0
+PackageName: VSS Programming Language
+Publisher: VSS Core Team
+License: MIT
+ShortDescription: The VSS Programming Language Compiler and VM
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/siddharth-1118/vss-language/releases/download/v1.0.0/vss-windows-amd64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000 # Replace with actual release zip SHA256 hash
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: vss.exe
+        PortableCommandAlias: vss
+ManifestType: singleton
+ManifestVersion: 1.6.0

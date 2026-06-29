@@ -1,0 +1,130 @@
+name: Release CI/CD
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: vss-linux-amd64.tar.gz
+            asset_content_type: application/gzip
+          - os: macos-latest
+            artifact_name: vss-macos-amd64.tar.gz
+            asset_content_type: application/gzip
+          - os: windows-latest
+            artifact_name: vss-windows-amd64.zip
+            asset_content_type: application/zip
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Setup compilation environments
+      - name: Set up GCC (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Set up MinGW (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+
+      # Build VSS
+      - name: Build VSS (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd vss
+          make clean
+          make
+
+      - name: Build VSS (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd vss
+          gcc -std=c11 -Wall -Wextra -pedantic -g -Iinclude src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c -o vss.exe
+
+      # Package artifacts
+      - name: Package Linux Binary and Debian Package
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Tarball package
+          tar -czvf vss-linux-amd64.tar.gz -C vss vss
+          
+          # Debian package (.deb)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p debian-pkg/DEBIAN
+          mkdir -p debian-pkg/usr/bin
+          cp vss/vss debian-pkg/usr/bin/vss
+          
+          cat <<EOF > debian-pkg/DEBIAN/control
+          Package: vss
+          Version: ${VERSION}
+          Section: devel
+          Priority: optional
+          Architecture: amd64
+          Maintainer: VSS Maintainers <maintainers@vss-language.org>
+          Description: The VSS Programming Language Compiler and VM
+           VSS is a production-ready, high-performance programming language
+           featuring automatic reference counting and a stack-based VM.
+          EOF
+          
+          dpkg-deb --build debian-pkg vss_${VERSION}_amd64.deb
+
+      - name: Package macOS Binary
+        if: matrix.os == 'macos-latest'
+        run: |
+          tar -czvf vss-macos-amd64.tar.gz -C vss vss
+
+      - name: Package Windows Binary
+        if: matrix.os == 'windows-latest'
+        run: |
+          powershell Compress-Archive -Path vss/vss.exe -DestinationPath vss-windows-amd64.zip
+
+      # Upload build outputs
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: |
+            *.tar.gz
+            *.zip
+            *.deb
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/*.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

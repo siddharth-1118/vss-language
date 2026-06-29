@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	cd vss && make clean && make
+
+override_dh_auto_install:
+	mkdir -p $(CURDIR)/debian/vss/usr/bin
+	cp vss/vss $(CURDIR)/debian/vss/usr/bin/vss
