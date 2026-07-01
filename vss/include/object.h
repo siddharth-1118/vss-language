@@ -26,6 +26,7 @@ typedef struct VSS_ObjClosure {
     VSS_ObjFunction *function;
     VSS_Upvalue **upvalues;
     int upvalue_count;
+    VSS_Value receiver;
 } VSS_ObjClosure;
 
 VSS_ObjFunction *vss_function_new(const char *name, size_t param_count);

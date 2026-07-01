@@ -343,10 +343,48 @@ static void compile_expr(VSS_Expr *expr) {
             emit_byte(VSS_OP_GET_ITEM, expr->line);
             break;
         }
+        case VSS_EXPR_MINE: {
+            int arg = resolve_local(current_compiler, "mine");
+            if (arg != -1) {
+                emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)arg, expr->line);
+            } else if ((arg = resolve_upvalue(current_compiler, "mine")) != -1) {
+                emit_bytes(VSS_OP_GET_UPVALUE, (uint8_t)arg, expr->line);
+            } else {
+                int name_const = make_constant(vss_value_new_string("mine"), expr->line);
+                emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)name_const, expr->line);
+            }
+            break;
+        }
+        case VSS_EXPR_PARENT: {
+            int arg = resolve_local(current_compiler, "mine");
+            if (arg != -1) {
+                emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)arg, expr->line);
+            } else if ((arg = resolve_upvalue(current_compiler, "mine")) != -1) {
+                emit_bytes(VSS_OP_GET_UPVALUE, (uint8_t)arg, expr->line);
+            } else {
+                int name_const = make_constant(vss_value_new_string("mine"), expr->line);
+                emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)name_const, expr->line);
+            }
+            break;
+        }
         case VSS_EXPR_FIELD_ACCESS: {
-            compile_expr(expr->as.field_access.map);
-            compile_expr(expr->as.field_access.field);
-            emit_byte(VSS_OP_GET_FIELD, expr->line);
+            if (expr->as.field_access.map->kind == VSS_EXPR_PARENT) {
+                int arg = resolve_local(current_compiler, "mine");
+                if (arg != -1) {
+                    emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)arg, expr->line);
+                } else if ((arg = resolve_upvalue(current_compiler, "mine")) != -1) {
+                    emit_bytes(VSS_OP_GET_UPVALUE, (uint8_t)arg, expr->line);
+                } else {
+                    int name_const = make_constant(vss_value_new_string("mine"), expr->line);
+                    emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)name_const, expr->line);
+                }
+                compile_expr(expr->as.field_access.field);
+                emit_byte(VSS_OP_GET_PARENT, expr->line);
+            } else {
+                compile_expr(expr->as.field_access.map);
+                compile_expr(expr->as.field_access.field);
+                emit_byte(VSS_OP_GET_FIELD, expr->line);
+            }
             break;
         }
         case VSS_EXPR_CALL: {
@@ -366,6 +404,36 @@ static void compile_block(VSS_Block block, bool new_scope, int line) {
         compile_stmt(block.statements[i]);
     }
     if (new_scope) end_scope(line);
+}
+
+static void compile_task_closure(VSS_Stmt *stmt) {
+    Compiler task_compiler;
+    compiler_init(&task_compiler, stmt->as.task.name, TYPE_TASK);
+    task_compiler.function->param_count = stmt->as.task.param_count;
+    
+    begin_scope();
+    for (size_t i = 0; i < stmt->as.task.param_count; i++) {
+        add_local(stmt->as.task.params[i], false, stmt->line);
+    }
+    
+    VSS_Block body;
+    body.statements = stmt->as.task.body.statements;
+    body.count = stmt->as.task.body.count;
+    compile_block(body, false, stmt->line);
+    
+    emit_return(stmt->line);
+    VSS_ObjFunction *compiled_func = compiler_end();
+    
+    int func_const = make_constant(vss_value_new_function(compiled_func), stmt->line);
+    vss_function_release(compiled_func);
+    
+    emit_byte(VSS_OP_CLOSURE, stmt->line);
+    emit_byte((uint8_t)func_const, stmt->line);
+    
+    for (int i = 0; i < compiled_func->upvalue_count; i++) {
+        emit_byte(task_compiler.upvalues[i].is_local ? 1 : 0, stmt->line);
+        emit_byte((uint8_t)task_compiler.upvalues[i].index, stmt->line);
+    }
 }
 
 static void compile_stmt(VSS_Stmt *stmt) {
@@ -757,33 +825,7 @@ static void compile_stmt(VSS_Stmt *stmt) {
             break;
         }
         case VSS_STMT_TASK: {
-            Compiler task_compiler;
-            compiler_init(&task_compiler, stmt->as.task.name, TYPE_TASK);
-            
-            begin_scope();
-            for (size_t i = 0; i < stmt->as.task.param_count; i++) {
-                add_local(stmt->as.task.params[i], false, stmt->line);
-            }
-            
-            VSS_Block body;
-            body.statements = stmt->as.task.body.statements;
-            body.count = stmt->as.task.body.count;
-            compile_block(body, false, stmt->line);
-            
-            emit_return(stmt->line);
-            VSS_ObjFunction *compiled_func = compiler_end();
-            
-            int func_const = make_constant(vss_value_new_function(compiled_func), stmt->line);
-            vss_function_release(compiled_func); // release compilation reference
-            
-            emit_byte(VSS_OP_CLOSURE, stmt->line);
-            emit_byte((uint8_t)func_const, stmt->line);
-            
-            for (int i = 0; i < compiled_func->upvalue_count; i++) {
-                emit_byte(task_compiler.upvalues[i].is_local ? 1 : 0, stmt->line);
-                emit_byte((uint8_t)task_compiler.upvalues[i].index, stmt->line);
-            }
-            
+            compile_task_closure(stmt);
             if (current_compiler->scope_depth == 0) {
                 int name_const = make_constant(vss_value_new_string(stmt->as.task.name), stmt->line);
                 emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
@@ -874,6 +916,54 @@ static void compile_stmt(VSS_Stmt *stmt) {
         case VSS_STMT_GRAB: {
             int name_const = make_constant(vss_value_new_string(stmt->as.grab.module_name), stmt->line);
             emit_bytes(VSS_OP_GRAB, (uint8_t)name_const, stmt->line);
+            break;
+        }
+        case VSS_STMT_CHOICES: {
+            int name_const = make_constant(vss_value_new_string(stmt->as.choices_decl.name), stmt->line);
+            for (size_t i = 0; i < stmt->as.choices_decl.member_count; i++) {
+                emit_constant(vss_value_new_string(stmt->as.choices_decl.members[i]), stmt->line);
+            }
+            emit_bytes(VSS_OP_ENUM, (uint8_t)name_const, stmt->line);
+            emit_byte((uint8_t)stmt->as.choices_decl.member_count, stmt->line);
+            
+            if (current_compiler->scope_depth == 0) {
+                emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
+                emit_byte((uint8_t)name_const, stmt->line);
+                emit_byte(0, stmt->line);
+            } else {
+                add_local(stmt->as.choices_decl.name, false, stmt->line);
+            }
+            break;
+        }
+        case VSS_STMT_INTERFACE: {
+            break;
+        }
+        case VSS_STMT_OBJECT: {
+            if (stmt->as.object_decl.parent_name) {
+                int parent_const = make_constant(vss_value_new_string(stmt->as.object_decl.parent_name), stmt->line);
+                emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)parent_const, stmt->line);
+            } else {
+                emit_byte(VSS_OP_EMPTY, stmt->line);
+            }
+            int name_const = make_constant(vss_value_new_string(stmt->as.object_decl.name), stmt->line);
+            emit_bytes(VSS_OP_CLASS, (uint8_t)name_const, stmt->line);
+            
+            for (size_t i = 0; i < stmt->as.object_decl.member_count; i++) {
+                VSS_Stmt *m = stmt->as.object_decl.members[i];
+                if (m->kind == VSS_STMT_TASK) {
+                    emit_constant(vss_value_new_string(m->as.task.name), m->line);
+                    compile_task_closure(m);
+                    emit_byte(VSS_OP_SET_MEMBER, m->line);
+                }
+            }
+            
+            if (current_compiler->scope_depth == 0) {
+                emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
+                emit_byte((uint8_t)name_const, stmt->line);
+                emit_byte(0, stmt->line);
+            } else {
+                add_local(stmt->as.object_decl.name, false, stmt->line);
+            }
             break;
         }
         default: break;

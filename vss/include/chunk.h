@@ -67,7 +67,14 @@ typedef enum {
     VSS_OP_GRAB,           // Import/grab module (1-byte operand: constant pool string index)
     
     VSS_OP_HI_HTMVSS,      // Emit HTML document prefix
-    VSS_OP_BYE_HTMVSS      // Emit HTML document suffix
+    VSS_OP_BYE_HTMVSS,     // Emit HTML document suffix
+    
+    // OOP Opcodes
+    VSS_OP_CLASS,
+    VSS_OP_ENUM,
+    VSS_OP_GET_MEMBER,
+    VSS_OP_SET_MEMBER,
+    VSS_OP_GET_PARENT
 } VSS_OpCode;
 
 typedef struct {

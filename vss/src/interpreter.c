@@ -556,6 +556,24 @@ static VSS_FlowResult eval_expr(VSS_Expr *expr, VSS_Env *env, VSS_Value *out_val
                 return flow_normal();
             }
         }
+        case VSS_EXPR_MINE: {
+            VSS_Value val;
+            if (!vss_env_get(env, "mine", &val)) {
+                return flow_error(expr->line, expr->column, "Undefined variable 'mine'.");
+            }
+            vss_value_retain(val);
+            *out_val = val;
+            return flow_normal();
+        }
+        case VSS_EXPR_PARENT: {
+            VSS_Value val;
+            if (!vss_env_get(env, "mine", &val)) {
+                return flow_error(expr->line, expr->column, "Undefined variable 'parent'.");
+            }
+            vss_value_retain(val);
+            *out_val = val;
+            return flow_normal();
+        }
     }
 
     return flow_error(expr->line, expr->column, "Unknown expression kind.");
@@ -988,6 +1006,10 @@ static VSS_FlowResult exec_stmt(VSS_Stmt *stmt, VSS_Env *env) {
             vss_env_release(mod_env);
             return flow_normal();
         }
+        case VSS_STMT_OBJECT:
+        case VSS_STMT_INTERFACE:
+        case VSS_STMT_CHOICES:
+            return flow_normal();
     }
 
     return flow_error(stmt->line, stmt->column, "Unknown statement kind.");

@@ -115,6 +115,71 @@ VSS_Value vss_value_new_function(VSS_ObjFunction *func) {
     return v;
 }
 
+VSS_Value vss_value_new_class(const char *name, VSS_ObjClass *parent) {
+    VSS_ObjClass *klass = malloc(sizeof(VSS_ObjClass));
+    klass->ref_count = 1;
+    klass->name = safe_strdup(name);
+    klass->parent = parent;
+    if (parent) {
+        parent->ref_count++;
+    }
+    VSS_Value m = vss_value_new_map();
+    klass->methods = m.as.map;
+    klass->methods->ref_count++;
+    vss_value_release(m);
+    
+    VSS_Value val;
+    val.type = VSS_VAL_CLASS;
+    val.as.klass = klass;
+    return val;
+}
+
+VSS_Value vss_value_new_instance(VSS_ObjClass *klass) {
+    VSS_ObjInstance *inst = malloc(sizeof(VSS_ObjInstance));
+    inst->ref_count = 1;
+    inst->klass = klass;
+    if (klass) {
+        klass->ref_count++;
+    }
+    VSS_Value m = vss_value_new_map();
+    inst->fields = m.as.map;
+    inst->fields->ref_count++;
+    vss_value_release(m);
+    
+    VSS_Value val;
+    val.type = VSS_VAL_INSTANCE;
+    val.as.instance = inst;
+    return val;
+}
+
+VSS_Value vss_value_new_enum(const char *name) {
+    VSS_ObjEnum *enm = malloc(sizeof(VSS_ObjEnum));
+    enm->ref_count = 1;
+    enm->name = safe_strdup(name);
+    VSS_Value m = vss_value_new_map();
+    enm->members = m.as.map;
+    enm->members->ref_count++;
+    vss_value_release(m);
+    
+    VSS_Value val;
+    val.type = VSS_VAL_ENUM;
+    val.as.enm = enm;
+    return val;
+}
+
+VSS_Value vss_value_new_enum_val(const char *enum_name, const char *member_name, int value) {
+    VSS_ObjEnumVal *enm_val = malloc(sizeof(VSS_ObjEnumVal));
+    enm_val->ref_count = 1;
+    enm_val->enum_name = safe_strdup(enum_name);
+    enm_val->member_name = safe_strdup(member_name);
+    enm_val->value = value;
+    
+    VSS_Value val;
+    val.type = VSS_VAL_ENUM_VAL;
+    val.as.enm_val = enm_val;
+    return val;
+}
+
 void vss_value_retain(VSS_Value v) {
     switch (v.type) {
         case VSS_VAL_STRING:
@@ -134,6 +199,18 @@ void vss_value_retain(VSS_Value v) {
             break;
         case VSS_VAL_FUNCTION:
             vss_function_retain(v.as.function);
+            break;
+        case VSS_VAL_CLASS:
+            v.as.klass->ref_count++;
+            break;
+        case VSS_VAL_INSTANCE:
+            v.as.instance->ref_count++;
+            break;
+        case VSS_VAL_ENUM:
+            v.as.enm->ref_count++;
+            break;
+        case VSS_VAL_ENUM_VAL:
+            v.as.enm_val->ref_count++;
             break;
         default:
             break;
@@ -190,6 +267,64 @@ void vss_value_release(VSS_Value v) {
         case VSS_VAL_FUNCTION:
             vss_function_release(v.as.function);
             break;
+        case VSS_VAL_CLASS:
+            v.as.klass->ref_count--;
+            if (v.as.klass->ref_count == 0) {
+                free(v.as.klass->name);
+                if (v.as.klass->parent) {
+                    VSS_Value pval;
+                    pval.type = VSS_VAL_CLASS;
+                    pval.as.klass = v.as.klass->parent;
+                    vss_value_release(pval);
+                }
+                if (v.as.klass->methods) {
+                    VSS_Value mval;
+                    mval.type = VSS_VAL_MAP;
+                    mval.as.map = v.as.klass->methods;
+                    vss_value_release(mval);
+                }
+                free(v.as.klass);
+            }
+            break;
+        case VSS_VAL_INSTANCE:
+            v.as.instance->ref_count--;
+            if (v.as.instance->ref_count == 0) {
+                if (v.as.instance->klass) {
+                    VSS_Value kval;
+                    kval.type = VSS_VAL_CLASS;
+                    kval.as.klass = v.as.instance->klass;
+                    vss_value_release(kval);
+                }
+                if (v.as.instance->fields) {
+                    VSS_Value fval;
+                    fval.type = VSS_VAL_MAP;
+                    fval.as.map = v.as.instance->fields;
+                    vss_value_release(fval);
+                }
+                free(v.as.instance);
+            }
+            break;
+        case VSS_VAL_ENUM:
+            v.as.enm->ref_count--;
+            if (v.as.enm->ref_count == 0) {
+                free(v.as.enm->name);
+                if (v.as.enm->members) {
+                    VSS_Value mval;
+                    mval.type = VSS_VAL_MAP;
+                    mval.as.map = v.as.enm->members;
+                    vss_value_release(mval);
+                }
+                free(v.as.enm);
+            }
+            break;
+        case VSS_VAL_ENUM_VAL:
+            v.as.enm_val->ref_count--;
+            if (v.as.enm_val->ref_count == 0) {
+                free(v.as.enm_val->enum_name);
+                free(v.as.enm_val->member_name);
+                free(v.as.enm_val);
+            }
+            break;
         default:
             break;
     }
@@ -239,6 +374,15 @@ bool vss_value_same_as(VSS_Value a, VSS_Value b) {
             return a.as.closure == b.as.closure;
         case VSS_VAL_FUNCTION:
             return a.as.function == b.as.function;
+        case VSS_VAL_CLASS:
+            return a.as.klass == b.as.klass;
+        case VSS_VAL_INSTANCE:
+            return a.as.instance == b.as.instance;
+        case VSS_VAL_ENUM:
+            return a.as.enm == b.as.enm;
+        case VSS_VAL_ENUM_VAL:
+            return (strcmp(a.as.enm_val->enum_name, b.as.enm_val->enum_name) == 0 &&
+                    strcmp(a.as.enm_val->member_name, b.as.enm_val->member_name) == 0);
     }
     return false;
 }
@@ -323,6 +467,26 @@ char *vss_value_to_string(VSS_Value v) {
             return safe_strdup("<task>");
         case VSS_VAL_FUNCTION:
             return safe_strdup("<task>");
+        case VSS_VAL_CLASS: {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "<class %s>", v.as.klass->name);
+            return safe_strdup(buf);
+        }
+        case VSS_VAL_INSTANCE: {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "<instance %s>", v.as.instance->klass->name);
+            return safe_strdup(buf);
+        }
+        case VSS_VAL_ENUM: {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "<enum %s>", v.as.enm->name);
+            return safe_strdup(buf);
+        }
+        case VSS_VAL_ENUM_VAL: {
+            char buf[128];
+            snprintf(buf, sizeof(buf), "%s.%s", v.as.enm_val->enum_name, v.as.enm_val->member_name);
+            return safe_strdup(buf);
+        }
     }
     return safe_strdup("<unknown>");
 }

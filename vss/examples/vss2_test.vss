@@ -1,0 +1,76 @@
+###
+Comprehensive test file for VSS 2.0 features.
+This includes: optional static types, objects, inheritance,
+interfaces, enums, pattern matching, constants,
+string interpolation, modules, and doc comments.
+###
+
+note Feature 7: Constants & Folding
+keep PI:decimal = 3.14159
+keep AD:number = 10 + 20
+
+note Feature 5: Enumerations
+choices Color
+    Red
+    Green
+    Blue
+finish
+
+note Feature 4: Interfaces
+interface Shape
+    task area needs
+    task print_name needs
+finish
+
+note Feature 2: Objects
+object Circle implements Shape
+    note Feature 1: Optional Static Types
+    make radius:decimal = 0.0
+
+    task create needs r
+        note Feature 8: String Interpolation
+        say "Creating circle with radius {r}"
+        mine.radius = r
+    finish
+
+    task area needs
+        send PI * mine.radius * mine.radius
+    finish
+
+    task print_name needs
+        say "Circle"
+    finish
+finish
+
+note Feature 3: Inheritance
+object ColoredCircle extends Circle
+    make color:Color = Color.Red
+
+    task create needs r c
+        parent.create r
+        mine.color = c
+    finish
+
+    task print_name needs
+        note Feature 6: Pattern Matching
+        choose mine.color
+            case Color.Red
+                say "Red Circle"
+            case Color.Green
+                say "Green Circle"
+            otherwise
+                say "Other Colored Circle"
+        finish
+    finish
+finish
+
+note Test Execution
+make c = Circle 5.0
+say c.area()
+c.print_name()
+make cc = ColoredCircle 10.0 Color.Red
+cc.print_name()
+say cc.area()
+
+make cc2 = ColoredCircle 2.0 Color.Blue
+cc2.print_name()

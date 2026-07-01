@@ -68,6 +68,74 @@ VSS_Expr *vss_expr_new_name(const char *name, int line, int column) {
 }
 
 VSS_Expr *vss_expr_new_binary(VSS_TokenType op, VSS_Expr *left, VSS_Expr *right, int line, int column) {
+    if (left && right) {
+        if (left->kind == VSS_EXPR_NUMBER && right->kind == VSS_EXPR_NUMBER) {
+            double lval = left->as.number;
+            double rval = right->as.number;
+            double res = 0.0;
+            bool is_comp = false;
+            bool comp_res = false;
+            
+            switch (op) {
+                case VSS_TOKEN_PLUS: res = lval + rval; break;
+                case VSS_TOKEN_MINUS: res = lval - rval; break;
+                case VSS_TOKEN_STAR: res = lval * rval; break;
+                case VSS_TOKEN_SLASH: {
+                    if (rval != 0.0) res = lval / rval;
+                    break;
+                }
+                case VSS_TOKEN_PERCENT: {
+                    if (rval != 0.0) res = (double)((long)lval % (long)rval);
+                    break;
+                }
+                case VSS_TOKEN_ABOVE: comp_res = lval > rval; is_comp = true; break;
+                case VSS_TOKEN_BELOW: comp_res = lval < rval; is_comp = true; break;
+                case VSS_TOKEN_AT_LEAST: comp_res = lval >= rval; is_comp = true; break;
+                case VSS_TOKEN_AT_MOST: comp_res = lval <= rval; is_comp = true; break;
+                case VSS_TOKEN_SAME_AS: comp_res = lval == rval; is_comp = true; break;
+                case VSS_TOKEN_NOT_SAME_AS: comp_res = lval != rval; is_comp = true; break;
+                default: goto no_fold;
+            }
+            vss_expr_free(left);
+            vss_expr_free(right);
+            if (is_comp) {
+                return vss_expr_new_bool(comp_res, line, column);
+            } else {
+                return vss_expr_new_number(res, line, column);
+            }
+        }
+        
+        if (left->kind == VSS_EXPR_STRING && right->kind == VSS_EXPR_STRING && op == VSS_TOKEN_PLUS) {
+            char *lstr = left->as.string;
+            char *rstr = right->as.string;
+            char *joined = malloc(strlen(lstr) + strlen(rstr) + 1);
+            strcpy(joined, lstr);
+            strcat(joined, rstr);
+            vss_expr_free(left);
+            vss_expr_free(right);
+            VSS_Expr *expr = vss_expr_new_string(joined, line, column);
+            free(joined);
+            return expr;
+        }
+        
+        if (left->kind == VSS_EXPR_BOOL && right->kind == VSS_EXPR_BOOL) {
+            bool lval = left->as.boolean;
+            bool rval = right->as.boolean;
+            bool res = false;
+            switch (op) {
+                case VSS_TOKEN_AND: res = lval && rval; break;
+                case VSS_TOKEN_OR: res = lval || rval; break;
+                case VSS_TOKEN_SAME_AS: res = lval == rval; break;
+                case VSS_TOKEN_NOT_SAME_AS: res = lval != rval; break;
+                default: goto no_fold;
+            }
+            vss_expr_free(left);
+            vss_expr_free(right);
+            return vss_expr_new_bool(res, line, column);
+        }
+    }
+    
+no_fold:;
     VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
         expr->kind = VSS_EXPR_BINARY;
@@ -81,6 +149,18 @@ VSS_Expr *vss_expr_new_binary(VSS_TokenType op, VSS_Expr *left, VSS_Expr *right,
 }
 
 VSS_Expr *vss_expr_new_unary(VSS_TokenType op, VSS_Expr *operand, int line, int column) {
+    if (operand) {
+        if (op == VSS_TOKEN_MINUS && operand->kind == VSS_EXPR_NUMBER) {
+            double val = -operand->as.number;
+            vss_expr_free(operand);
+            return vss_expr_new_number(val, line, column);
+        }
+        if (op == VSS_TOKEN_NOT && operand->kind == VSS_EXPR_BOOL) {
+            bool val = !operand->as.boolean;
+            vss_expr_free(operand);
+            return vss_expr_new_bool(val, line, column);
+        }
+    }
     VSS_Expr *expr = malloc(sizeof(VSS_Expr));
     if (expr) {
         expr->kind = VSS_EXPR_UNARY;
@@ -154,6 +234,26 @@ VSS_Expr *vss_expr_new_call(VSS_Expr *callee, VSS_Expr **args, size_t count, int
     return expr;
 }
 
+VSS_Expr *vss_expr_new_mine(int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
+    if (expr) {
+        expr->kind = VSS_EXPR_MINE;
+        expr->line = line;
+        expr->column = column;
+    }
+    return expr;
+}
+
+VSS_Expr *vss_expr_new_parent(int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
+    if (expr) {
+        expr->kind = VSS_EXPR_PARENT;
+        expr->line = line;
+        expr->column = column;
+    }
+    return expr;
+}
+
 void vss_expr_free(VSS_Expr *expr) {
     if (!expr) return;
     switch (expr->kind) {
@@ -203,29 +303,34 @@ void vss_expr_free(VSS_Expr *expr) {
             }
             free(expr->as.call.args);
             break;
+        case VSS_EXPR_MINE:
+        case VSS_EXPR_PARENT:
+            break;
     }
     free(expr);
 }
 
-VSS_Stmt *vss_stmt_new_make(const char *name, VSS_Expr *initializer, int line, int column) {
+VSS_Stmt *vss_stmt_new_make(const char *name, const char *type_name, VSS_Expr *initializer, int line, int column) {
     VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
         stmt->kind = VSS_STMT_MAKE;
         stmt->line = line;
         stmt->column = column;
         stmt->as.make.name = safe_strdup(name);
+        stmt->as.make.type_name = safe_strdup(type_name);
         stmt->as.make.initializer = initializer;
     }
     return stmt;
 }
 
-VSS_Stmt *vss_stmt_new_keep(const char *name, VSS_Expr *initializer, int line, int column) {
+VSS_Stmt *vss_stmt_new_keep(const char *name, const char *type_name, VSS_Expr *initializer, int line, int column) {
     VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
     if (stmt) {
         stmt->kind = VSS_STMT_KEEP;
         stmt->line = line;
         stmt->column = column;
         stmt->as.keep.name = safe_strdup(name);
+        stmt->as.keep.type_name = safe_strdup(type_name);
         stmt->as.keep.initializer = initializer;
     }
     return stmt;
@@ -471,10 +576,12 @@ void vss_stmt_free(VSS_Stmt *stmt) {
     switch (stmt->kind) {
         case VSS_STMT_MAKE:
             free(stmt->as.make.name);
+            if (stmt->as.make.type_name) free(stmt->as.make.type_name);
             vss_expr_free(stmt->as.make.initializer);
             break;
         case VSS_STMT_KEEP:
             free(stmt->as.keep.name);
+            if (stmt->as.keep.type_name) free(stmt->as.keep.type_name);
             vss_expr_free(stmt->as.keep.initializer);
             break;
         case VSS_STMT_ASSIGN:
@@ -557,6 +664,82 @@ void vss_stmt_free(VSS_Stmt *stmt) {
         case VSS_STMT_EXPR:
             vss_expr_free(stmt->as.expr_stmt.expression);
             break;
+        case VSS_STMT_OBJECT:
+            free(stmt->as.object_decl.name);
+            if (stmt->as.object_decl.parent_name) free(stmt->as.object_decl.parent_name);
+            if (stmt->as.object_decl.interfaces) {
+                for (size_t i = 0; i < stmt->as.object_decl.interface_count; i++) {
+                    free(stmt->as.object_decl.interfaces[i]);
+                }
+                free(stmt->as.object_decl.interfaces);
+            }
+            if (stmt->as.object_decl.members) {
+                for (size_t i = 0; i < stmt->as.object_decl.member_count; i++) {
+                    vss_stmt_free(stmt->as.object_decl.members[i]);
+                }
+                free(stmt->as.object_decl.members);
+            }
+            break;
+        case VSS_STMT_INTERFACE:
+            free(stmt->as.interface_decl.name);
+            if (stmt->as.interface_decl.task_decls) {
+                for (size_t i = 0; i < stmt->as.interface_decl.task_count; i++) {
+                    vss_stmt_free(stmt->as.interface_decl.task_decls[i]);
+                }
+                free(stmt->as.interface_decl.task_decls);
+            }
+            break;
+        case VSS_STMT_CHOICES:
+            free(stmt->as.choices_decl.name);
+            if (stmt->as.choices_decl.members) {
+                for (size_t i = 0; i < stmt->as.choices_decl.member_count; i++) {
+                    free(stmt->as.choices_decl.members[i]);
+                }
+                free(stmt->as.choices_decl.members);
+            }
+            break;
     }
     free(stmt);
+}
+
+VSS_Stmt *vss_stmt_new_object(const char *name, const char *parent_name, char **interfaces, size_t interface_count, VSS_Stmt **members, size_t member_count, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_OBJECT;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.object_decl.name = safe_strdup(name);
+        stmt->as.object_decl.parent_name = safe_strdup(parent_name);
+        stmt->as.object_decl.interfaces = interfaces;
+        stmt->as.object_decl.interface_count = interface_count;
+        stmt->as.object_decl.members = members;
+        stmt->as.object_decl.member_count = member_count;
+    }
+    return stmt;
+}
+
+VSS_Stmt *vss_stmt_new_interface(const char *name, VSS_Stmt **task_decls, size_t task_count, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_INTERFACE;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.interface_decl.name = safe_strdup(name);
+        stmt->as.interface_decl.task_decls = task_decls;
+        stmt->as.interface_decl.task_count = task_count;
+    }
+    return stmt;
+}
+
+VSS_Stmt *vss_stmt_new_choices(const char *name, char **members, size_t member_count, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_CHOICES;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.choices_decl.name = safe_strdup(name);
+        stmt->as.choices_decl.members = members;
+        stmt->as.choices_decl.member_count = member_count;
+    }
+    return stmt;
 }

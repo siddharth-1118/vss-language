@@ -63,6 +63,15 @@ const char *vss_token_type_name(VSS_TokenType type) {
         case VSS_TOKEN_HI: return "VSS_TOKEN_HI";
         case VSS_TOKEN_BYE: return "VSS_TOKEN_BYE";
         case VSS_TOKEN_HTMVSS: return "VSS_TOKEN_HTMVSS";
+        case VSS_TOKEN_OBJECT: return "VSS_TOKEN_OBJECT";
+        case VSS_TOKEN_MINE: return "VSS_TOKEN_MINE";
+        case VSS_TOKEN_EXTENDS: return "VSS_TOKEN_EXTENDS";
+        case VSS_TOKEN_IMPLEMENTS: return "VSS_TOKEN_IMPLEMENTS";
+        case VSS_TOKEN_CHOICES: return "VSS_TOKEN_CHOICES";
+        case VSS_TOKEN_INTERFACE: return "VSS_TOKEN_INTERFACE";
+        case VSS_TOKEN_PARENT: return "VSS_TOKEN_PARENT";
+        case VSS_TOKEN_DOT: return "VSS_TOKEN_DOT";
+        case VSS_TOKEN_EQUAL: return "VSS_TOKEN_EQUAL";
         case VSS_TOKEN_PLUS: return "VSS_TOKEN_PLUS";
         case VSS_TOKEN_MINUS: return "VSS_TOKEN_MINUS";
         case VSS_TOKEN_STAR: return "VSS_TOKEN_STAR";
@@ -72,6 +81,8 @@ const char *vss_token_type_name(VSS_TokenType type) {
         case VSS_TOKEN_RIGHT_BRACKET: return "VSS_TOKEN_RIGHT_BRACKET";
         case VSS_TOKEN_COMMA: return "VSS_TOKEN_COMMA";
         case VSS_TOKEN_COLON: return "VSS_TOKEN_COLON";
+        case VSS_TOKEN_LEFT_PAREN: return "VSS_TOKEN_LEFT_PAREN";
+        case VSS_TOKEN_RIGHT_PAREN: return "VSS_TOKEN_RIGHT_PAREN";
         default: return "VSS_TOKEN_UNKNOWN";
     }
 }

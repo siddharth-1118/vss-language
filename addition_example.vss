@@ -1,0 +1,14 @@
+note Simple addition script
+
+make num1 becomes 15
+make num2 becomes 27
+make sum becomes num1 + num2
+
+say "The first number is: "
+say num1
+
+say "The second number is: "
+say num2
+
+say "Their sum is: "
+say sum

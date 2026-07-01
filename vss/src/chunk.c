@@ -219,6 +219,16 @@ int vss_disassemble_instruction(VSS_Chunk *chunk, int offset) {
             return simple_instruction("VSS_OP_HI_HTMVSS", offset);
         case VSS_OP_BYE_HTMVSS:
             return simple_instruction("VSS_OP_BYE_HTMVSS", offset);
+        case VSS_OP_CLASS:
+            return constant_instruction("VSS_OP_CLASS", chunk, offset);
+        case VSS_OP_ENUM:
+            return constant_instruction("VSS_OP_ENUM", chunk, offset);
+        case VSS_OP_GET_MEMBER:
+            return constant_instruction("VSS_OP_GET_MEMBER", chunk, offset);
+        case VSS_OP_SET_MEMBER:
+            return constant_instruction("VSS_OP_SET_MEMBER", chunk, offset);
+        case VSS_OP_GET_PARENT:
+            return constant_instruction("VSS_OP_GET_PARENT", chunk, offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

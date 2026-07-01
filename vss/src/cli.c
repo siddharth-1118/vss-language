@@ -9,6 +9,7 @@
 #include "compiler.h"
 #include "vm.h"
 #include "interpreter.h" // for vss_register_builtins
+#include "semantic.h"
 
 // Levenshtein distance helper
 static int min3(int a, int b, int c) {
@@ -200,6 +201,11 @@ static int run_file(const char *path) {
             return 1;
         }
         
+        if (!vss_semantic_analyze(ast)) {
+            vss_block_free(ast);
+            return 1;
+        }
+        
         main_func = vss_compile_program(ast);
         vss_block_free(ast);
     }
@@ -235,6 +241,11 @@ static int build_file(const char *path) {
     free(source);
     
     if (parser.had_error) {
+        vss_block_free(ast);
+        return 1;
+    }
+    
+    if (!vss_semantic_analyze(ast)) {
         vss_block_free(ast);
         return 1;
     }

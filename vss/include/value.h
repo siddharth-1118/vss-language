@@ -13,7 +13,11 @@ typedef enum {
     VSS_VAL_TASK,
     VSS_VAL_NATIVE,
     VSS_VAL_CLOSURE,
-    VSS_VAL_FUNCTION
+    VSS_VAL_FUNCTION,
+    VSS_VAL_CLASS,
+    VSS_VAL_INSTANCE,
+    VSS_VAL_ENUM,
+    VSS_VAL_ENUM_VAL
 } VSS_ValueType;
 
 typedef struct VSS_ValString VSS_ValString;
@@ -22,6 +26,10 @@ typedef struct VSS_ValMap VSS_ValMap;
 typedef struct VSS_ValTask VSS_ValTask;
 typedef struct VSS_ObjClosure VSS_ObjClosure;
 typedef struct VSS_ObjFunction VSS_ObjFunction;
+typedef struct VSS_ObjClass VSS_ObjClass;
+typedef struct VSS_ObjInstance VSS_ObjInstance;
+typedef struct VSS_ObjEnum VSS_ObjEnum;
+typedef struct VSS_ObjEnumVal VSS_ObjEnumVal;
 struct VSS_Stmt;
 struct VSS_Env;
 
@@ -39,6 +47,10 @@ typedef struct VSS_Value {
         VSS_NativeFnPtr native;
         VSS_ObjClosure *closure;
         VSS_ObjFunction *function;
+        VSS_ObjClass *klass;
+        VSS_ObjInstance *instance;
+        VSS_ObjEnum *enm;
+        VSS_ObjEnumVal *enm_val;
     } as;
 } VSS_Value;
 
@@ -75,6 +87,32 @@ struct VSS_ValTask {
     struct VSS_Env *closure;
 };
 
+struct VSS_ObjClass {
+    int ref_count;
+    char *name;
+    struct VSS_ObjClass *parent;
+    VSS_ValMap *methods;
+};
+
+struct VSS_ObjInstance {
+    int ref_count;
+    VSS_ObjClass *klass;
+    VSS_ValMap *fields;
+};
+
+struct VSS_ObjEnum {
+    int ref_count;
+    char *name;
+    VSS_ValMap *members;
+};
+
+struct VSS_ObjEnumVal {
+    int ref_count;
+    char *enum_name;
+    char *member_name;
+    int value;
+};
+
 // Constructors
 VSS_Value vss_value_new_number(double n);
 VSS_Value vss_value_new_string(const char *s);
@@ -86,6 +124,10 @@ VSS_Value vss_value_new_task(char **params, size_t param_count, struct VSS_Stmt 
 VSS_Value vss_value_new_native(VSS_NativeFnPtr func);
 VSS_Value vss_value_new_closure(VSS_ObjClosure *closure);
 VSS_Value vss_value_new_function(VSS_ObjFunction *func);
+VSS_Value vss_value_new_class(const char *name, VSS_ObjClass *parent);
+VSS_Value vss_value_new_instance(VSS_ObjClass *klass);
+VSS_Value vss_value_new_enum(const char *name);
+VSS_Value vss_value_new_enum_val(const char *enum_name, const char *member_name, int value);
 
 // Reference counting
 void vss_value_retain(VSS_Value v);

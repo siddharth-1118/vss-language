@@ -110,9 +110,33 @@ bool vss_list_dir_clean_vssc(const char *path) {
     return true;
 }
 
-void vss_launch_browser(int port) {
-    char url[256];
-    snprintf(url, sizeof(url), "http://localhost:%d/my-webpage.htmvss", port);
+int vss_scan_htmvss(const char *path, char ***filenames) {
+    char search_path[MAX_PATH];
+    snprintf(search_path, sizeof(search_path), "%s\\*.htmvss", path);
+    
+    WIN32_FIND_DATAA fd;
+    HANDLE hFind = FindFirstFileA(search_path, &fd);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        *filenames = NULL;
+        return 0;
+    }
+    
+    int count = 0;
+    char **list = NULL;
+    do {
+        list = realloc(list, sizeof(char*) * (count + 1));
+        list[count] = platform_strdup(fd.cFileName);
+        count++;
+    } while (FindNextFileA(hFind, &fd));
+    
+    FindClose(hFind);
+    *filenames = list;
+    return count;
+}
+
+void vss_launch_browser(int port, const char *filename) {
+    char url[512];
+    snprintf(url, sizeof(url), "http://localhost:%d/%s", port, filename);
     ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 }
 
@@ -229,12 +253,35 @@ bool vss_list_dir_clean_vssc(const char *path) {
     return true;
 }
 
-void vss_launch_browser(int port) {
-    char launch_cmd[256];
+int vss_scan_htmvss(const char *path, char ***filenames) {
+    DIR *d = opendir(path);
+    if (!d) {
+        *filenames = NULL;
+        return 0;
+    }
+    
+    int count = 0;
+    char **list = NULL;
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        char *ext = strrchr(dir->d_name, '.');
+        if (ext && strcmp(ext, ".htmvss") == 0) {
+            list = realloc(list, sizeof(char*) * (count + 1));
+            list[count] = platform_strdup(dir->d_name);
+            count++;
+        }
+    }
+    closedir(d);
+    *filenames = list;
+    return count;
+}
+
+void vss_launch_browser(int port, const char *filename) {
+    char launch_cmd[512];
 #ifdef __APPLE__
-    snprintf(launch_cmd, sizeof(launch_cmd), "open http://localhost:%d/my-webpage.htmvss 2>/dev/null &", port);
+    snprintf(launch_cmd, sizeof(launch_cmd), "open http://localhost:%d/%s 2>/dev/null &", port, filename);
 #else
-    snprintf(launch_cmd, sizeof(launch_cmd), "xdg-open http://localhost:%d/my-webpage.htmvss 2>/dev/null &", port);
+    snprintf(launch_cmd, sizeof(launch_cmd), "xdg-open http://localhost:%d/%s 2>/dev/null &", port, filename);
 #endif
     system(launch_cmd);
 }

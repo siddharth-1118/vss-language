@@ -125,7 +125,14 @@ static VSS_TokenType keyword_type(const char *start, size_t length) {
         {"note", VSS_TOKEN_NOTE},
         {"hi", VSS_TOKEN_HI},
         {"bye", VSS_TOKEN_BYE},
-        {"htmvss", VSS_TOKEN_HTMVSS}
+        {"htmvss", VSS_TOKEN_HTMVSS},
+        {"object", VSS_TOKEN_OBJECT},
+        {"mine", VSS_TOKEN_MINE},
+        {"extends", VSS_TOKEN_EXTENDS},
+        {"implements", VSS_TOKEN_IMPLEMENTS},
+        {"choices", VSS_TOKEN_CHOICES},
+        {"interface", VSS_TOKEN_INTERFACE},
+        {"parent", VSS_TOKEN_PARENT}
     };
 
     size_t count = sizeof(keywords) / sizeof(keywords[0]);
@@ -234,6 +241,36 @@ VSS_Token vss_lexer_next(VSS_Lexer *lexer) {
         case ']': return make_token(lexer, VSS_TOKEN_RIGHT_BRACKET);
         case ',': return make_token(lexer, VSS_TOKEN_COMMA);
         case ':': return make_token(lexer, VSS_TOKEN_COLON);
+        case '.': return make_token(lexer, VSS_TOKEN_DOT);
+        case '(': return make_token(lexer, VSS_TOKEN_LEFT_PAREN);
+        case ')': return make_token(lexer, VSS_TOKEN_RIGHT_PAREN);
+        case '=': return make_token(lexer, VSS_TOKEN_EQUAL);
+        case '#': {
+            if (peek_char(lexer) == '#' && peek_next_char(lexer) == '#') {
+                // Consume the other two '#'
+                advance_char(lexer);
+                advance_char(lexer);
+                // Scan until closing "###"
+                while (!is_at_end(lexer)) {
+                    if (peek_char(lexer) == '#' && peek_next_char(lexer) == '#') {
+                        if (lexer->current[2] == '#') {
+                            // Found closing "###"
+                            advance_char(lexer);
+                            advance_char(lexer);
+                            advance_char(lexer);
+                            break;
+                        }
+                    }
+                    if (peek_char(lexer) == '\n') {
+                        lexer->line++;
+                        lexer->column = 1;
+                    }
+                    advance_char(lexer);
+                }
+                return vss_lexer_next(lexer);
+            }
+            return error_token(lexer, "Unexpected character '#'.");
+        }
         default: return error_token(lexer, "Unexpected character.");
     }
 }

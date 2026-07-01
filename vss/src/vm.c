@@ -8,9 +8,31 @@
 #include "compiler.h"
 #include "interpreter.h" // for vss_register_builtins
 
-static VSS_VM *current_vm_instance = NULL;
+typedef struct {
+    char *name;
+    VSS_Value exports;
+    bool is_loading;
+} CachedModule;
 
-static void runtime_error(const char *format, ...);
+static CachedModule *module_cache = NULL;
+static size_t module_cache_count = 0;
+
+static void clear_module_cache(void) {
+    for (size_t i = 0; i < module_cache_count; i++) {
+        free(module_cache[i].name);
+        vss_value_release(module_cache[i].exports);
+    }
+    free(module_cache);
+    module_cache = NULL;
+    module_cache_count = 0;
+}
+
+static CachedModule *get_cached_module(const char *name) {
+    for (size_t i = 0; i < module_cache_count; i++) {
+        if (strcmp(module_cache[i].name, name) == 0) return &module_cache[i];
+    }
+    return NULL;
+}
 
 static char *safe_strdup(const char *s) {
     if (!s) return NULL;
@@ -18,6 +40,19 @@ static char *safe_strdup(const char *s) {
     if (dup) strcpy(dup, s);
     return dup;
 }
+
+static void add_cached_module(const char *name, VSS_Value exports, bool is_loading) {
+    module_cache = realloc(module_cache, sizeof(CachedModule) * (module_cache_count + 1));
+    module_cache[module_cache_count].name = safe_strdup(name);
+    module_cache[module_cache_count].exports = exports;
+    vss_value_retain(exports);
+    module_cache[module_cache_count].is_loading = is_loading;
+    module_cache_count++;
+}
+
+static VSS_VM *current_vm_instance = NULL;
+
+static void runtime_error(const char *format, ...);
 
 void vss_vm_init(VSS_VM *vm, VSS_Env *global_env) {
     vm->stack_top = vm->stack;
@@ -157,6 +192,9 @@ static char *read_file_text(const char *path) {
 }
 
 bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
+    if (strcmp(func->name, "__main__") == 0) {
+        clear_module_cache();
+    }
     VSS_VM vm;
     vss_vm_init(&vm, global_env);
     
@@ -223,12 +261,18 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 VSS_Value name_val = frame->closure->function->chunk.constants[constant];
                 const char *name = name_val.as.string->chars;
                 VSS_Value val;
-                if (!vss_env_get(vm.globals, name, &val)) {
-                    runtime_error("Undefined variable '%s'.", name);
-                    return false;
+                if (strcmp(name, "mine") == 0 && frame->closure->receiver.type != VSS_VAL_EMPTY) {
+                    val = frame->closure->receiver;
+                    vss_value_retain(val);
+                    push(val);
+                } else {
+                    if (!vss_env_get(vm.globals, name, &val)) {
+                        runtime_error("Undefined variable '%s'.", name);
+                        return false;
+                    }
+                    vss_value_retain(val);
+                    push(val);
                 }
-                vss_value_retain(val);
-                push(val);
                 break;
             }
             case VSS_OP_DEFINE_GLOBAL: {
@@ -276,12 +320,16 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 VSS_Value l = pop();
                 if (l.type == VSS_VAL_NUMBER && r.type == VSS_VAL_NUMBER) {
                     push(vss_value_new_number(l.as.number + r.as.number));
-                } else if (l.type == VSS_VAL_STRING && r.type == VSS_VAL_STRING) {
-                    char *joined = malloc(strlen(l.as.string->chars) + strlen(r.as.string->chars) + 1);
-                    strcpy(joined, l.as.string->chars);
-                    strcat(joined, r.as.string->chars);
+                } else if (l.type == VSS_VAL_STRING || r.type == VSS_VAL_STRING) {
+                    char *l_str = vss_value_to_string(l);
+                    char *r_str = vss_value_to_string(r);
+                    char *joined = malloc(strlen(l_str) + strlen(r_str) + 1);
+                    strcpy(joined, l_str);
+                    strcat(joined, r_str);
                     push(vss_value_new_string(joined));
                     free(joined);
+                    free(l_str);
+                    free(r_str);
                 } else {
                     vss_value_release(l); vss_value_release(r);
                     runtime_error("Can only add numbers or join strings.");
@@ -396,12 +444,81 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
             case VSS_OP_CALL: {
                 uint8_t arg_count = *frame->ip++;
                 VSS_Value callee_val = peek(arg_count);
-                if (callee_val.type != VSS_VAL_CLOSURE && callee_val.type != VSS_VAL_NATIVE) {
+                if (callee_val.type != VSS_VAL_CLOSURE && callee_val.type != VSS_VAL_NATIVE && callee_val.type != VSS_VAL_CLASS) {
                     runtime_error("VSS_Value is not callable.");
                     return false;
                 }
                 
-                if (callee_val.type == VSS_VAL_CLOSURE) {
+                if (callee_val.type == VSS_VAL_CLASS) {
+                    VSS_Value inst = vss_value_new_instance(callee_val.as.klass);
+                    VSS_ObjClass *curr = callee_val.as.klass;
+                    VSS_Value create_val;
+                    bool found = false;
+                    while (curr) {
+                        for (size_t i = 0; i < curr->methods->count; i++) {
+                            if (strcmp(curr->methods->entries[i].key, "create") == 0) {
+                                create_val = curr->methods->entries[i].value;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                        curr = curr->parent;
+                    }
+                    
+                    if (found) {
+                        VSS_ObjClosure *bound = NULL;
+                        if (create_val.type == VSS_VAL_CLOSURE) {
+                            bound = vss_closure_new(create_val.as.closure->function);
+                            for (int i = 0; i < bound->upvalue_count; i++) {
+                                bound->upvalues[i] = create_val.as.closure->upvalues[i];
+                                if (bound->upvalues[i]) {
+                                    vss_upvalue_retain(bound->upvalues[i]);
+                                }
+                            }
+                            bound->receiver = inst;
+                            vss_value_retain(inst);
+                        } else if (create_val.type == VSS_VAL_FUNCTION) {
+                            bound = vss_closure_new(create_val.as.function);
+                            bound->receiver = inst;
+                            vss_value_retain(inst);
+                        } else {
+                            for (int i = 0; i <= arg_count; i++) {
+                                vss_value_release(pop());
+                            }
+                            push(inst);
+                            break;
+                        }
+                        
+                        vss_value_release(*(vm.stack_top - arg_count - 1));
+                        *(vm.stack_top - arg_count - 1) = vss_value_new_closure(bound);
+                        
+                        if (arg_count != bound->function->param_count) {
+                            runtime_error("Expected %zu arguments but got %zu.", bound->function->param_count, arg_count);
+                            return false;
+                        }
+                        
+                        if (vm.frame_count >= VSS_FRAMES_MAX) {
+                            runtime_error("Stack overflow (max call frames reached).");
+                            return false;
+                        }
+                        
+                        VSS_CallFrame *next_frame = &vm.frames[vm.frame_count++];
+                        next_frame->closure = bound;
+                        next_frame->ip = bound->function->chunk.code;
+                        next_frame->slots = vm.stack_top - arg_count - 1;
+                        
+                        frame = next_frame;
+                    } else {
+                        if (arg_count != 0) {
+                            runtime_error("Constructor 'create' not found on class '%s'.", callee_val.as.klass->name);
+                            vss_value_release(inst);
+                            return false;
+                        }
+                        vss_value_release(pop());
+                        push(inst);
+                    }
+                } else if (callee_val.type == VSS_VAL_CLOSURE) {
                     VSS_ObjClosure *callee = callee_val.as.closure;
                     if (arg_count != callee->function->param_count) {
                         runtime_error("Expected %zu arguments but got %zu.", callee->function->param_count, arg_count);
@@ -420,7 +537,6 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     
                     frame = next_frame;
                 } else {
-                    // Native task
                     VSS_NativeFnPtr native = callee_val.as.native;
                     VSS_Value *args = vm.stack_top - arg_count;
                     
@@ -434,7 +550,6 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                         return false;
                     }
                     
-                    // Pop args + native function
                     for (int i = 0; i <= arg_count; i++) {
                         vss_value_release(pop());
                     }
@@ -448,6 +563,8 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 VSS_ObjFunction *func = func_val.as.function;
                 
                 VSS_ObjClosure *cls = vss_closure_new(func);
+                cls->receiver = frame->closure->receiver;
+                vss_value_retain(cls->receiver);
                 VSS_Value cls_val = vss_value_new_closure(cls);
                 push(cls_val);
                 
@@ -468,11 +585,20 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 VSS_Value ret_val = pop(); // pop return value
                 close_upvalues(&vm, frame->slots);
                 
+                if (frame->closure->receiver.type != VSS_VAL_EMPTY && strcmp(frame->closure->function->name, "create") == 0) {
+                    vss_value_release(ret_val);
+                    ret_val = frame->closure->receiver;
+                    vss_value_retain(ret_val);
+                }
+                
                 vm.frame_count--;
                 if (vm.frame_count == 0) {
                     vss_value_release(pop()); // pop closure
                     push(ret_val);
                     vss_vm_free(&vm);
+                    if (strcmp(func->name, "__main__") == 0) {
+                        clear_module_cache();
+                    }
                     return true;
                 }
                 
@@ -561,27 +687,137 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
             }
             case VSS_OP_GET_FIELD: {
                 VSS_Value field = pop();
-                VSS_Value map = pop();
-                if (map.type != VSS_VAL_MAP || field.type != VSS_VAL_STRING) {
-                    vss_value_release(map); vss_value_release(field);
-                    runtime_error("Map field access expects a map and a string key.");
+                VSS_Value receiver = pop();
+                if (field.type != VSS_VAL_STRING) {
+                    vss_value_release(receiver); vss_value_release(field);
+                    runtime_error("Field access expects a string key.");
                     return false;
                 }
                 const char *key = field.as.string->chars;
-                VSS_ValMap *m = map.as.map;
-                bool found = false;
-                for (size_t i = 0; i < m->count; i++) {
-                    if (strcmp(m->entries[i].key, key) == 0) {
-                        VSS_Value fval = m->entries[i].value;
-                        vss_value_retain(fval);
-                        push(fval);
-                        found = true;
+                
+                if (receiver.type == VSS_VAL_MAP) {
+                    VSS_ValMap *m = receiver.as.map;
+                    bool found = false;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, key) == 0) {
+                            VSS_Value fval = m->entries[i].value;
+                            vss_value_retain(fval);
+                            push(fval);
+                            found = true;
+                            break;
+                        }
+                    }
+                    vss_value_release(receiver); vss_value_release(field);
+                    if (!found) {
+                        runtime_error("Map key '%s' not found.", key);
+                        return false;
+                    }
+                } else if (receiver.type == VSS_VAL_INSTANCE) {
+                    VSS_ValMap *m = receiver.as.instance->fields;
+                    bool found = false;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, key) == 0) {
+                            VSS_Value fval = m->entries[i].value;
+                            vss_value_retain(fval);
+                            push(fval);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) {
+                        vss_value_release(receiver); vss_value_release(field);
                         break;
                     }
-                }
-                vss_value_release(map); vss_value_release(field);
-                if (!found) {
-                    runtime_error("Map key '%s' not found.", key);
+                    
+                    VSS_ObjClass *curr = receiver.as.instance->klass;
+                    VSS_Value method_val;
+                    while (curr) {
+                        VSS_ValMap *meths = curr->methods;
+                        for (size_t i = 0; i < meths->count; i++) {
+                            if (strcmp(meths->entries[i].key, key) == 0) {
+                                method_val = meths->entries[i].value;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                        curr = curr->parent;
+                    }
+                    
+                    if (found) {
+                        if (method_val.type == VSS_VAL_CLOSURE) {
+                            VSS_ObjClosure *bound = vss_closure_new(method_val.as.closure->function);
+                            for (int i = 0; i < bound->upvalue_count; i++) {
+                                bound->upvalues[i] = method_val.as.closure->upvalues[i];
+                                if (bound->upvalues[i]) {
+                                    vss_upvalue_retain(bound->upvalues[i]);
+                                }
+                            }
+                            bound->receiver = receiver;
+                            vss_value_retain(receiver);
+                            push(vss_value_new_closure(bound));
+                        } else if (method_val.type == VSS_VAL_FUNCTION) {
+                            VSS_ObjClosure *bound = vss_closure_new(method_val.as.function);
+                            bound->receiver = receiver;
+                            vss_value_retain(receiver);
+                            push(vss_value_new_closure(bound));
+                        } else {
+                            vss_value_retain(method_val);
+                            push(method_val);
+                        }
+                        vss_value_release(receiver); vss_value_release(field);
+                        break;
+                    }
+                    
+                    vss_value_release(receiver); vss_value_release(field);
+                    runtime_error("Field or method '%s' not found on instance.", key);
+                    return false;
+                } else if (receiver.type == VSS_VAL_CLASS) {
+                    VSS_ObjClass *curr = receiver.as.klass;
+                    bool found = false;
+                    VSS_Value method_val;
+                    while (curr) {
+                        VSS_ValMap *meths = curr->methods;
+                        for (size_t i = 0; i < meths->count; i++) {
+                            if (strcmp(meths->entries[i].key, key) == 0) {
+                                method_val = meths->entries[i].value;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                        curr = curr->parent;
+                    }
+                    
+                    if (found) {
+                        vss_value_retain(method_val);
+                        push(method_val);
+                        vss_value_release(receiver); vss_value_release(field);
+                        break;
+                    }
+                    vss_value_release(receiver); vss_value_release(field);
+                    runtime_error("Static method '%s' not found on class.", key);
+                    return false;
+                } else if (receiver.type == VSS_VAL_ENUM) {
+                    VSS_ValMap *m = receiver.as.enm->members;
+                    bool found = false;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, key) == 0) {
+                            VSS_Value eval = m->entries[i].value;
+                            vss_value_retain(eval);
+                            push(eval);
+                            found = true;
+                            break;
+                        }
+                    }
+                    vss_value_release(receiver); vss_value_release(field);
+                    if (!found) {
+                        runtime_error("Enum member '%s' not found.", key);
+                        return false;
+                    }
+                } else {
+                    vss_value_release(receiver); vss_value_release(field);
+                    runtime_error("Cannot access fields on non-map, non-instance value.");
                     return false;
                 }
                 break;
@@ -589,33 +825,206 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
             case VSS_OP_SET_FIELD: {
                 VSS_Value val = pop();
                 VSS_Value field = pop();
-                VSS_Value map = pop();
-                if (map.type != VSS_VAL_MAP || field.type != VSS_VAL_STRING) {
-                    vss_value_release(map); vss_value_release(field); vss_value_release(val);
-                    runtime_error("set statement expects a map, string key, and value.");
+                VSS_Value receiver = pop();
+                if (field.type != VSS_VAL_STRING) {
+                    vss_value_release(receiver); vss_value_release(field); vss_value_release(val);
+                    runtime_error("Field setting expects a string key.");
                     return false;
                 }
                 const char *key = field.as.string->chars;
-                VSS_ValMap *m = map.as.map;
+                
+                if (receiver.type == VSS_VAL_MAP) {
+                    VSS_ValMap *m = receiver.as.map;
+                    bool found = false;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, key) == 0) {
+                            vss_value_release(m->entries[i].value);
+                            m->entries[i].value = val;
+                            vss_value_retain(val);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                        m->entries[m->count].key = safe_strdup(key);
+                        m->entries[m->count].value = val;
+                        vss_value_retain(val);
+                        m->count++;
+                    }
+                } else if (receiver.type == VSS_VAL_INSTANCE) {
+                    VSS_ValMap *m = receiver.as.instance->fields;
+                    bool found = false;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, key) == 0) {
+                            vss_value_release(m->entries[i].value);
+                            m->entries[i].value = val;
+                            vss_value_retain(val);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                        m->entries[m->count].key = safe_strdup(key);
+                        m->entries[m->count].value = val;
+                        vss_value_retain(val);
+                        m->count++;
+                    }
+                } else {
+                    vss_value_release(receiver); vss_value_release(field); vss_value_release(val);
+                    runtime_error("Cannot set fields on non-map, non-instance value.");
+                    return false;
+                }
+                vss_value_release(receiver); vss_value_release(field); vss_value_release(val);
+                break;
+            }
+            case VSS_OP_CLASS: {
+                uint8_t constant = *frame->ip++;
+                VSS_Value name_val = frame->closure->function->chunk.constants[constant];
+                const char *name = name_val.as.string->chars;
+                
+                VSS_Value parent_val = pop();
+                VSS_ObjClass *parent = NULL;
+                if (parent_val.type != VSS_VAL_EMPTY) {
+                    if (parent_val.type != VSS_VAL_CLASS) {
+                        vss_value_release(parent_val);
+                        runtime_error("Parent class must be a class.");
+                        return false;
+                    }
+                    parent = parent_val.as.klass;
+                }
+                
+                VSS_Value klass = vss_value_new_class(name, parent);
+                push(klass);
+                
+                vss_value_release(parent_val);
+                break;
+            }
+            case VSS_OP_ENUM: {
+                uint8_t name_const = *frame->ip++;
+                uint8_t member_count = *frame->ip++;
+                VSS_Value name_val = frame->closure->function->chunk.constants[name_const];
+                const char *enum_name = name_val.as.string->chars;
+                
+                VSS_Value enm = vss_value_new_enum(enum_name);
+                
+                for (int i = (int)member_count - 1; i >= 0; i--) {
+                    VSS_Value member_val = pop();
+                    const char *member_name = member_val.as.string->chars;
+                    VSS_Value eval = vss_value_new_enum_val(enum_name, member_name, i);
+                    
+                    VSS_ValMap *m = enm.as.enm->members;
+                    m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                    m->entries[m->count].key = safe_strdup(member_name);
+                    m->entries[m->count].value = eval;
+                    vss_value_retain(eval);
+                    m->count++;
+                    
+                    vss_value_release(member_val);
+                }
+                push(enm);
+                break;
+            }
+            case VSS_OP_SET_MEMBER: {
+                VSS_Value method = pop();
+                VSS_Value name_val = pop();
+                VSS_Value klass_val = peek(0);
+                
+                if (klass_val.type != VSS_VAL_CLASS) {
+                    vss_value_release(method); vss_value_release(name_val);
+                    runtime_error("Can only set methods on a class.");
+                    return false;
+                }
+                
+                VSS_ObjClass *klass = klass_val.as.klass;
+                const char *method_name = name_val.as.string->chars;
+                VSS_ValMap *m = klass->methods;
+                
                 bool found = false;
                 for (size_t i = 0; i < m->count; i++) {
-                    if (strcmp(m->entries[i].key, key) == 0) {
+                    if (strcmp(m->entries[i].key, method_name) == 0) {
                         vss_value_release(m->entries[i].value);
-                        m->entries[i].value = val; // transferred
+                        m->entries[i].value = method;
+                        vss_value_retain(method);
                         found = true;
                         break;
                     }
                 }
                 if (!found) {
-                    if (m->count >= m->capacity) {
-                        m->capacity = m->capacity == 0 ? 8 : m->capacity * 2;
-                        m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * m->capacity);
-                    }
-                    m->entries[m->count].key = safe_strdup(key);
-                    m->entries[m->count].value = val;
+                    m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                    m->entries[m->count].key = safe_strdup(method_name);
+                    m->entries[m->count].value = method;
+                    vss_value_retain(method);
                     m->count++;
                 }
-                vss_value_release(map); vss_value_release(field);
+                vss_value_release(method);
+                vss_value_release(name_val);
+                break;
+            }
+            case VSS_OP_GET_PARENT: {
+                VSS_Value name_val = pop();
+                VSS_Value mine_val = pop();
+                
+                if (mine_val.type != VSS_VAL_INSTANCE) {
+                    vss_value_release(name_val); vss_value_release(mine_val);
+                    runtime_error("Parent lookup expects a 'mine' instance.");
+                    return false;
+                }
+                
+                VSS_ObjClass *parent = mine_val.as.instance->klass->parent;
+                if (!parent) {
+                    vss_value_release(name_val); vss_value_release(mine_val);
+                    runtime_error("Class has no parent to perform parent lookup.");
+                    return false;
+                }
+                
+                const char *method_name = name_val.as.string->chars;
+                VSS_Value method_val;
+                bool found = false;
+                VSS_ObjClass *curr = parent;
+                while (curr) {
+                    VSS_ValMap *m = curr->methods;
+                    for (size_t i = 0; i < m->count; i++) {
+                        if (strcmp(m->entries[i].key, method_name) == 0) {
+                            method_val = m->entries[i].value;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                    curr = curr->parent;
+                }
+                
+                if (!found) {
+                    vss_value_release(name_val); vss_value_release(mine_val);
+                    runtime_error("Method '%s' not found in parent class.", method_name);
+                    return false;
+                }
+                
+                if (method_val.type == VSS_VAL_CLOSURE) {
+                    VSS_ObjClosure *bound = vss_closure_new(method_val.as.closure->function);
+                    for (int i = 0; i < bound->upvalue_count; i++) {
+                        bound->upvalues[i] = method_val.as.closure->upvalues[i];
+                        if (bound->upvalues[i]) {
+                            vss_upvalue_retain(bound->upvalues[i]);
+                        }
+                    }
+                    bound->receiver = mine_val;
+                    vss_value_retain(mine_val);
+                    push(vss_value_new_closure(bound));
+                } else if (method_val.type == VSS_VAL_FUNCTION) {
+                    VSS_ObjClosure *bound = vss_closure_new(method_val.as.function);
+                    bound->receiver = mine_val;
+                    vss_value_retain(mine_val);
+                    push(vss_value_new_closure(bound));
+                } else {
+                    vss_value_retain(method_val);
+                    push(method_val);
+                }
+                
+                vss_value_release(name_val);
+                vss_value_release(mine_val);
                 break;
             }
             case VSS_OP_SIZE_OF: {
@@ -652,63 +1061,93 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 VSS_Value name_val = frame->closure->function->chunk.constants[name_const];
                 const char *module_name = name_val.as.string->chars;
                 
-                char filepath[256];
-                snprintf(filepath, sizeof(filepath), "%s.vss", module_name);
-                FILE *f = fopen(filepath, "rb");
-                if (!f) {
-                    snprintf(filepath, sizeof(filepath), "packages/%s.vss", module_name);
-                    f = fopen(filepath, "rb");
-                }
-                if (!f) {
-                    snprintf(filepath, sizeof(filepath), "examples/%s.vss", module_name);
-                    f = fopen(filepath, "rb");
-                }
-                if (!f) {
-                    runtime_error("Grab module '%s' not found.", module_name);
-                    return false;
-                }
-                fclose(f);
+                CachedModule *cached = get_cached_module(module_name);
+                VSS_Value exports;
                 
-                char *source = read_file_text(filepath);
-                VSS_Lexer mod_lexer;
-                vss_lexer_init(&mod_lexer, source);
-                VSS_Parser mod_parser;
-                vss_parser_init(&mod_parser, &mod_lexer);
-                VSS_Block mod_ast = vss_parse_program(&mod_parser);
-                free(source);
-                
-                if (mod_parser.had_error) {
-                    vss_block_free(mod_ast);
-                    runtime_error("Syntax error in module '%s'.", module_name);
-                    return false;
-                }
-                
-                VSS_ObjFunction *mod_func = vss_compile_program(mod_ast);
-                vss_block_free(mod_ast);
-                
-                VSS_Env *mod_env = vss_env_new(NULL);
-                vss_register_builtins(mod_env);
-                
-                bool run_success = vss_vm_run(mod_func, mod_env);
-                vss_function_release(mod_func);
-                
-                if (!run_success) {
-                    vss_env_release(mod_env);
-                    return false;
-                }
-                
-                // Copy all module bindings to current vm globals
-                for (size_t i = 0; i < mod_env->count; i++) {
-                    if (strncmp(mod_env->items[i].name, "__", 2) == 0) continue;
-                    
-                    if (mod_env->items[i].is_constant) {
-                        vss_env_define_const(vm.globals, mod_env->items[i].name, mod_env->items[i].value);
-                    } else {
-                        vss_env_define(vm.globals, mod_env->items[i].name, mod_env->items[i].value);
+                if (cached) {
+                    if (cached->is_loading) {
+                        runtime_error("Circular dependency detected grabbing module '%s'.", module_name);
+                        return false;
                     }
+                    exports = cached->exports;
+                } else {
+                    char filepath[256];
+                    snprintf(filepath, sizeof(filepath), "%s.vss", module_name);
+                    FILE *f = fopen(filepath, "rb");
+                    if (!f) {
+                        snprintf(filepath, sizeof(filepath), "packages/%s.vss", module_name);
+                        f = fopen(filepath, "rb");
+                    }
+                    if (!f) {
+                        snprintf(filepath, sizeof(filepath), "examples/%s.vss", module_name);
+                        f = fopen(filepath, "rb");
+                    }
+                    if (!f) {
+                        runtime_error("Grab module '%s' not found.", module_name);
+                        return false;
+                    }
+                    fclose(f);
+                    
+                    char *source = read_file_text(filepath);
+                    VSS_Lexer mod_lexer;
+                    vss_lexer_init(&mod_lexer, source);
+                    VSS_Parser mod_parser;
+                    vss_parser_init(&mod_parser, &mod_lexer);
+                    VSS_Block mod_ast = vss_parse_program(&mod_parser);
+                    free(source);
+                    
+                    if (mod_parser.had_error) {
+                        vss_block_free(mod_ast);
+                        runtime_error("Syntax error in module '%s'.", module_name);
+                        return false;
+                    }
+                    
+                    VSS_ObjFunction *mod_func = vss_compile_program(mod_ast);
+                    vss_block_free(mod_ast);
+                    
+                    VSS_Env *mod_env = vss_env_new(NULL);
+                    vss_register_builtins(mod_env);
+                    
+                    VSS_Value empty_map = vss_value_new_map();
+                    add_cached_module(module_name, empty_map, true);
+                    vss_value_release(empty_map);
+                    
+                    bool run_success = vss_vm_run(mod_func, mod_env);
+                    vss_function_release(mod_func);
+                    
+                    if (!run_success) {
+                        vss_env_release(mod_env);
+                        return false;
+                    }
+                    
+                    exports = vss_value_new_map();
+                    VSS_ValMap *m = exports.as.map;
+                    for (size_t i = 0; i < mod_env->count; i++) {
+                        if (strncmp(mod_env->items[i].name, "__", 2) == 0) continue;
+                        
+                        m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                        m->entries[m->count].key = safe_strdup(mod_env->items[i].name);
+                        m->entries[m->count].value = mod_env->items[i].value;
+                        vss_value_retain(mod_env->items[i].value);
+                        m->count++;
+                    }
+                    
+                    CachedModule *load_entry = get_cached_module(module_name);
+                    vss_value_release(load_entry->exports);
+                    load_entry->exports = exports;
+                    vss_value_retain(exports);
+                    load_entry->is_loading = false;
+                    
+                    vss_env_release(mod_env);
                 }
                 
-                vss_env_release(mod_env);
+                vss_env_define(vm.globals, module_name, exports);
+                
+                VSS_ValMap *m = exports.as.map;
+                for (size_t i = 0; i < m->count; i++) {
+                    vss_env_define(vm.globals, m->entries[i].key, m->entries[i].value);
+                }
+                
                 break;
             }
             case VSS_OP_HI_HTMVSS:

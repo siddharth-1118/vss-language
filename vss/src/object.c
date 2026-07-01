@@ -65,6 +65,7 @@ VSS_ObjClosure *vss_closure_new(VSS_ObjFunction *func) {
     closure->ref_count = 1;
     closure->function = func;
     vss_function_retain(func);
+    closure->receiver = vss_value_new_empty();
     
     closure->upvalue_count = func->upvalue_count;
     if (closure->upvalue_count > 0) {
@@ -81,6 +82,7 @@ VSS_ObjClosure *vss_closure_new(VSS_ObjFunction *func) {
 void vss_closure_retain(VSS_ObjClosure *closure) {
     if (!closure) return;
     closure->ref_count++;
+    vss_value_retain(closure->receiver);
 }
 
 void vss_closure_release(VSS_ObjClosure *closure) {
@@ -88,6 +90,7 @@ void vss_closure_release(VSS_ObjClosure *closure) {
     closure->ref_count--;
     if (closure->ref_count == 0) {
         vss_function_release(closure->function);
+        vss_value_release(closure->receiver);
         if (closure->upvalue_count > 0) {
             for (int i = 0; i < closure->upvalue_count; i++) {
                 if (closure->upvalues[i]) {

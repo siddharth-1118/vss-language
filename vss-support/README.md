@@ -52,11 +52,17 @@ hi htmvss
     say "    </div>"
 bye htmvss
 ```
-
-Start the interactive dev server to automatically compile and launch this in your browser:
+Start the interactive dev server to automatically compile and launch it in your browser:
 ```bash
 ./vss --serve
 ```
+
+When started, the dev server scans the current working directory for `.htmvss` files:
+1. It looks for `index.htmvss` to serve as the default entry point.
+2. If not found, it checks for `main.htmvss`.
+3. If neither exists but exactly one `.htmvss` file exists, it is served automatically.
+4. If multiple `.htmvss` files exist, it lists them and prompts you to select one.
+5. If no `.htmvss` files are found, it prints a message and starts the server without opening the browser.
 
 ---
 

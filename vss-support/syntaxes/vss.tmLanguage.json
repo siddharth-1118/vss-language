@@ -22,6 +22,11 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.block.documentation.vss",
+          "begin": "###",
+          "end": "###"
+        },
+        {
           "name": "comment.line.note.vss",
           "match": "\\bnote\\b.*$"
         }
@@ -49,11 +54,15 @@
       "patterns": [
         {
           "name": "keyword.control.vss",
-          "match": "\\b(when|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss)\\b"
+          "match": "\\b(when|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss|object|extends|implements|choices|interface)\\b"
         },
         {
           "name": "keyword.other.vss",
           "match": "\\b(make|keep|becomes|say|put|into|set|field|item)\\b"
+        },
+        {
+          "name": "variable.language.vss",
+          "match": "\\b(mine|parent)\\b"
         },
         {
           "name": "constant.language.boolean.vss",

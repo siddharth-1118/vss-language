@@ -16,7 +16,9 @@ typedef enum {
     VSS_EXPR_MAP,
     VSS_EXPR_ITEM_ACCESS,
     VSS_EXPR_FIELD_ACCESS,
-    VSS_EXPR_CALL
+    VSS_EXPR_CALL,
+    VSS_EXPR_MINE,
+    VSS_EXPR_PARENT
 } VSS_ExprKind;
 
 typedef struct VSS_Expr VSS_Expr;
@@ -85,7 +87,10 @@ typedef enum {
     VSS_STMT_SET_FIELD,
     VSS_STMT_HI_HTMVSS,
     VSS_STMT_BYE_HTMVSS,
-    VSS_STMT_EXPR
+    VSS_STMT_EXPR,
+    VSS_STMT_OBJECT,
+    VSS_STMT_INTERFACE,
+    VSS_STMT_CHOICES
 } VSS_StmtKind;
 
 typedef struct VSS_Stmt VSS_Stmt;
@@ -112,10 +117,12 @@ struct VSS_Stmt {
     union {
         struct {
             char *name;
+            char *type_name;
             VSS_Expr *initializer;
         } make;
         struct {
             char *name;
+            char *type_name;
             VSS_Expr *initializer;
         } keep;
         struct {
@@ -184,6 +191,24 @@ struct VSS_Stmt {
         struct {
             VSS_Expr *expression;
         } expr_stmt;
+        struct {
+            char *name;
+            char *parent_name;
+            char **interfaces;
+            size_t interface_count;
+            struct VSS_Stmt **members;
+            size_t member_count;
+        } object_decl;
+        struct {
+            char *name;
+            struct VSS_Stmt **task_decls;
+            size_t task_count;
+        } interface_decl;
+        struct {
+            char *name;
+            char **members;
+            size_t member_count;
+        } choices_decl;
     } as;
 };
 
@@ -200,12 +225,14 @@ VSS_Expr *vss_expr_new_map(char **keys, VSS_Expr **values, size_t count, int lin
 VSS_Expr *vss_expr_new_item_access(VSS_Expr *list, VSS_Expr *index, int line, int column);
 VSS_Expr *vss_expr_new_field_access(VSS_Expr *map, VSS_Expr *field, int line, int column);
 VSS_Expr *vss_expr_new_call(VSS_Expr *callee, VSS_Expr **args, size_t count, int line, int column);
+VSS_Expr *vss_expr_new_mine(int line, int column);
+VSS_Expr *vss_expr_new_parent(int line, int column);
 
 void vss_expr_free(VSS_Expr *expr);
 
 // Constructor helpers for Statements
-VSS_Stmt *vss_stmt_new_make(const char *name, VSS_Expr *initializer, int line, int column);
-VSS_Stmt *vss_stmt_new_keep(const char *name, VSS_Expr *initializer, int line, int column);
+VSS_Stmt *vss_stmt_new_make(const char *name, const char *type_name, VSS_Expr *initializer, int line, int column);
+VSS_Stmt *vss_stmt_new_keep(const char *name, const char *type_name, VSS_Expr *initializer, int line, int column);
 VSS_Stmt *vss_stmt_new_assign(const char *name, VSS_Expr *value, int line, int column);
 VSS_Stmt *vss_stmt_new_say(VSS_Expr *expression, int line, int column);
 VSS_Stmt *vss_stmt_new_when(VSS_WhenBranch *branches, size_t branch_count, VSS_Block otherwise_branch, int line, int column);
@@ -225,6 +252,9 @@ VSS_Stmt *vss_stmt_new_set_field(VSS_Expr *map, VSS_Expr *field, VSS_Expr *value
 VSS_Stmt *vss_stmt_new_hi_htmvss(int line, int column);
 VSS_Stmt *vss_stmt_new_bye_htmvss(int line, int column);
 VSS_Stmt *vss_stmt_new_expr(VSS_Expr *expression, int line, int column);
+VSS_Stmt *vss_stmt_new_object(const char *name, const char *parent_name, char **interfaces, size_t interface_count, VSS_Stmt **members, size_t member_count, int line, int column);
+VSS_Stmt *vss_stmt_new_interface(const char *name, VSS_Stmt **task_decls, size_t task_count, int line, int column);
+VSS_Stmt *vss_stmt_new_choices(const char *name, char **members, size_t member_count, int line, int column);
 
 void vss_stmt_free(VSS_Stmt *stmt);
 void vss_block_free(VSS_Block block);

@@ -1,7 +1,7 @@
 CC = cc
 CFLAGS = -std=c11 -Wall -Wextra -pedantic -g
 INCLUDES = -Iinclude
-SRC = src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c
+SRC = src/main.c src/token.c src/lexer.c src/ast.c src/value.c src/env.c src/parser.c src/interpreter.c src/semantic.c src/chunk.c src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c
 
 # Version injection: make VERSION=1.0.0 BUILD_TYPE=Release
 VERSION ?= dev
