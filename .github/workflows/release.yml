@@ -91,7 +91,7 @@ jobs:
             -DVSS_BUILD_TYPE=\"Release\" \
             -Iinclude \
             src/main.c src/token.c src/lexer.c src/ast.c src/value.c \
-            src/env.c src/parser.c src/interpreter.c src/chunk.c \
+            src/env.c src/parser.c src/interpreter.c src/semantic.c src/chunk.c \
             src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c \
             -lws2_32 -o vss.exe
 

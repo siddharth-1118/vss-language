@@ -93,16 +93,25 @@ bool vss_make_dir(const char *path) {
 }
 
 bool vss_list_dir_clean_vssc(const char *path) {
-    char search_path[MAX_PATH];
-    snprintf(search_path, sizeof(search_path), "%s\\*.vssc", path);
+    size_t path_len = strlen(path);
+    size_t total_len = path_len + 8; // path + "\\*.vssc" + null
+    char *search_path = malloc(total_len);
+    if (!search_path) return false;
+    snprintf(search_path, total_len, "%s\\*.vssc", path);
     
     WIN32_FIND_DATAA fd;
     HANDLE hFind = FindFirstFileA(search_path, &fd);
+    free(search_path);
     if (hFind != INVALID_HANDLE_VALUE) {
         do {
-            char filepath[MAX_PATH];
-            snprintf(filepath, sizeof(filepath), "%s\\%s", path, fd.cFileName);
-            DeleteFileA(filepath);
+            size_t file_len = strlen(fd.cFileName);
+            size_t fp_len = path_len + 1 + file_len + 1; // path + "\\" + file + null
+            char *filepath = malloc(fp_len);
+            if (filepath) {
+                snprintf(filepath, fp_len, "%s\\%s", path, fd.cFileName);
+                DeleteFileA(filepath);
+                free(filepath);
+            }
             printf("  Removed: %s\n", fd.cFileName);
         } while (FindNextFileA(hFind, &fd));
         FindClose(hFind);
@@ -111,11 +120,18 @@ bool vss_list_dir_clean_vssc(const char *path) {
 }
 
 int vss_scan_htmvss(const char *path, char ***filenames) {
-    char search_path[MAX_PATH];
-    snprintf(search_path, sizeof(search_path), "%s\\*.htmvss", path);
+    size_t path_len = strlen(path);
+    size_t total_len = path_len + 10; // path + "\\*.htmvss" + null
+    char *search_path = malloc(total_len);
+    if (!search_path) {
+        *filenames = NULL;
+        return 0;
+    }
+    snprintf(search_path, total_len, "%s\\*.htmvss", path);
     
     WIN32_FIND_DATAA fd;
     HANDLE hFind = FindFirstFileA(search_path, &fd);
+    free(search_path);
     if (hFind == INVALID_HANDLE_VALUE) {
         *filenames = NULL;
         return 0;
@@ -238,13 +254,19 @@ bool vss_make_dir(const char *path) {
 bool vss_list_dir_clean_vssc(const char *path) {
     DIR *d = opendir(path);
     if (d) {
+        size_t path_len = strlen(path);
         struct dirent *dir;
         while ((dir = readdir(d)) != NULL) {
             char *ext = strrchr(dir->d_name, '.');
             if (ext && strcmp(ext, ".vssc") == 0) {
-                char filepath[1024];
-                snprintf(filepath, sizeof(filepath), "%s/%s", path, dir->d_name);
-                remove(filepath);
+                size_t file_len = strlen(dir->d_name);
+                size_t fp_len = path_len + 1 + file_len + 1; // path + "/" + file + null
+                char *filepath = malloc(fp_len);
+                if (filepath) {
+                    snprintf(filepath, fp_len, "%s/%s", path, dir->d_name);
+                    remove(filepath);
+                    free(filepath);
+                }
                 printf("  Removed: %s\n", dir->d_name);
             }
         }
