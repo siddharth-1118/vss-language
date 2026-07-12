@@ -12,7 +12,7 @@ ifeq ($(OS),Windows_NT)
     LIBS = -lws2_32
     OUT = vss.exe
 else
-    LIBS = 
+    LIBS = -lm
     OUT = vss
 endif
 
