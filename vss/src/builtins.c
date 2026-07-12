@@ -11,12 +11,24 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #define strdup _strdup
 #define popen _popen
 #define pclose _pclose
 #else
+/* Enable POSIX extensions for popen, usleep, getaddrinfo etc. */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif
 #include <unistd.h>
 #include <dlfcn.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #endif
 
 // MD5 and SHA256 self-contained implementations
@@ -1128,7 +1140,7 @@ static VSS_Value builtin_time_sleep(size_t arg_count, VSS_Value *args, bool *out
 #ifdef _WIN32
     Sleep((DWORD)(sec * 1000.0));
 #else
-    usleep((useconds_t)(sec * 1000000.0));
+    usleep((unsigned int)(sec * 1000000.0));
 #endif
     return vss_value_new_empty();
 }
