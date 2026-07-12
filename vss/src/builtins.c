@@ -1,3 +1,13 @@
+/* Feature-test macros MUST come before every #include */
+#ifndef _WIN32
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200809L
+#  endif
+#  ifndef _DEFAULT_SOURCE
+#    define _DEFAULT_SOURCE 1
+#  endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,25 +20,18 @@
 #include "json.h"
 
 #ifdef _WIN32
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#define strdup _strdup
-#define popen _popen
-#define pclose _pclose
+#  include <windows.h>
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  define strdup  _strdup
+#  define popen   _popen
+#  define pclose  _pclose
 #else
-/* Enable POSIX extensions for popen, usleep, getaddrinfo etc. */
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
-#endif
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE 1
-#endif
-#include <unistd.h>
-#include <dlfcn.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#  include <unistd.h>
+#  include <dlfcn.h>
+#  include <sys/socket.h>
+#  include <netdb.h>
+#  include <arpa/inet.h>
 #endif
 
 // MD5 and SHA256 self-contained implementations
