@@ -36,6 +36,7 @@ bool vss_dir_exists(const char *path);
 bool vss_make_dir(const char *path);
 bool vss_list_dir_clean_vssc(const char *path);
 int vss_scan_htmvss(const char *path, char ***filenames);
+int vss_list_dir(const char *path, char ***filenames);
 
 // Process and Environment API
 void vss_launch_browser(int port, const char *filename);

@@ -1,7 +1,39 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "semantic.h"
+
+extern const char *vss_current_source;
+
+static void sem_error(int line, int col, const char *format, ...) {
+    fprintf(stderr, "\033[1;31merror:\033[0m line %d, col %d: ", line, col);
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fprintf(stderr, "\n");
+
+    if (vss_current_source && line > 0) {
+        const char *p = vss_current_source;
+        int curr_line = 1;
+        while (*p && curr_line < line) {
+            if (*p == '\n') curr_line++;
+            p++;
+        }
+        const char *line_start = p;
+        while (*p && *p != '\n' && *p != '\r') p++;
+        int line_len = (int)(p - line_start);
+        
+        fprintf(stderr, " %4d | %.*s\n", line, line_len, line_start);
+        
+        fprintf(stderr, "      | ");
+        for (int i = 1; i < col; i++) {
+            fprintf(stderr, " ");
+        }
+        fprintf(stderr, "\033[1;31m^\033[0m\n");
+    }
+}
 
 static char *safe_strdup(const char *s) {
     if (!s) return NULL;
@@ -216,8 +248,8 @@ static bool check_stmt(VSS_Stmt *stmt, SemScope *scope) {
             const char *inf = infer_type(stmt->as.make.initializer, scope);
             if (stmt->as.make.type_name) {
                 if (!types_compatible(stmt->as.make.type_name, inf)) {
-                    fprintf(stderr, "error line %d, col %d: Type mismatch in variable declaration '%s'. Declared type is '%s', got '%s'.\n",
-                            stmt->line, stmt->column, stmt->as.make.name, stmt->as.make.type_name, inf);
+                    sem_error(stmt->line, stmt->column, "Type mismatch in variable declaration '%s'. Declared type is '%s', got '%s'.",
+                              stmt->as.make.name, stmt->as.make.type_name, inf);
                     return false;
                 }
             }
@@ -228,8 +260,8 @@ static bool check_stmt(VSS_Stmt *stmt, SemScope *scope) {
             const char *inf = infer_type(stmt->as.keep.initializer, scope);
             if (stmt->as.keep.type_name) {
                 if (!types_compatible(stmt->as.keep.type_name, inf)) {
-                    fprintf(stderr, "error line %d, col %d: Type mismatch in constant declaration '%s'. Declared type is '%s', got '%s'.\n",
-                            stmt->line, stmt->column, stmt->as.keep.name, stmt->as.keep.type_name, inf);
+                    sem_error(stmt->line, stmt->column, "Type mismatch in constant declaration '%s'. Declared type is '%s', got '%s'.",
+                              stmt->as.keep.name, stmt->as.keep.type_name, inf);
                     return false;
                 }
             }
@@ -240,15 +272,15 @@ static bool check_stmt(VSS_Stmt *stmt, SemScope *scope) {
             SemVar *v = scope_lookup(scope, stmt->as.assign.name);
             if (v) {
                 if (v->is_const) {
-                    fprintf(stderr, "error line %d, col %d: Cannot reassign to constant '%s'.\n",
-                            stmt->line, stmt->column, stmt->as.assign.name);
+                    sem_error(stmt->line, stmt->column, "Cannot reassign to constant '%s'.",
+                              stmt->as.assign.name);
                     return false;
                 }
                 const char *inf = infer_type(stmt->as.assign.value, scope);
                 if (v->type_name) {
                     if (!types_compatible(v->type_name, inf)) {
-                        fprintf(stderr, "error line %d, col %d: Type mismatch in assignment to '%s'. Declared type is '%s', got '%s'.\n",
-                                stmt->line, stmt->column, stmt->as.assign.name, v->type_name, inf);
+                        sem_error(stmt->line, stmt->column, "Type mismatch in assignment to '%s'. Declared type is '%s', got '%s'.",
+                                  stmt->as.assign.name, v->type_name, inf);
                         return false;
                     }
                 }
@@ -412,7 +444,18 @@ static bool check_stmt(VSS_Stmt *stmt, SemScope *scope) {
     return true;
 }
 
+static VSS_Stmt *find_stmt_for_class(VSS_Block program, const char *name) {
+    for (size_t i = 0; i < program.count; i++) {
+        VSS_Stmt *s = program.statements[i];
+        if (s->kind == VSS_STMT_OBJECT && strcmp(s->as.object_decl.name, name) == 0) {
+            return s;
+        }
+    }
+    return NULL;
+}
+
 bool vss_semantic_analyze(VSS_Block program) {
+    // 1. Clean up any state from previous analyzer runs
     for (size_t i = 0; i < interface_count; i++) {
         free(interfaces[i].name);
         for (size_t j = 0; j < interfaces[i].task_count; j++) {
@@ -463,12 +506,13 @@ bool vss_semantic_analyze(VSS_Block program) {
     classes = NULL;
     class_count = 0;
 
+    // 2. Scan and register enums, interfaces, and classes
     for (size_t i = 0; i < program.count; i++) {
         VSS_Stmt *stmt = program.statements[i];
         if (stmt->kind == VSS_STMT_CHOICES) {
             SemEnum *e = find_enum(stmt->as.choices_decl.name);
             if (e) {
-                fprintf(stderr, "error line %d, col %d: Duplicate enum declaration '%s'.\n", stmt->line, stmt->column, stmt->as.choices_decl.name);
+                sem_error(stmt->line, stmt->column, "Duplicate enum declaration '%s'.", stmt->as.choices_decl.name);
                 return false;
             }
             enums = realloc(enums, sizeof(SemEnum) * (enum_count + 1));
@@ -482,7 +526,7 @@ bool vss_semantic_analyze(VSS_Block program) {
         } else if (stmt->kind == VSS_STMT_INTERFACE) {
             SemInterface *iface = find_interface(stmt->as.interface_decl.name);
             if (iface) {
-                fprintf(stderr, "error line %d, col %d: Duplicate interface declaration '%s'.\n", stmt->line, stmt->column, stmt->as.interface_decl.name);
+                sem_error(stmt->line, stmt->column, "Duplicate interface declaration '%s'.", stmt->as.interface_decl.name);
                 return false;
             }
             interfaces = realloc(interfaces, sizeof(SemInterface) * (interface_count + 1));
@@ -502,7 +546,7 @@ bool vss_semantic_analyze(VSS_Block program) {
         } else if (stmt->kind == VSS_STMT_OBJECT) {
             SemClass *cls = find_class(stmt->as.object_decl.name);
             if (cls) {
-                fprintf(stderr, "error line %d, col %d: Duplicate class declaration '%s'.\n", stmt->line, stmt->column, stmt->as.object_decl.name);
+                sem_error(stmt->line, stmt->column, "Duplicate class declaration '%s'.", stmt->as.object_decl.name);
                 return false;
             }
             classes = realloc(classes, sizeof(SemClass) * (class_count + 1));
@@ -540,16 +584,20 @@ bool vss_semantic_analyze(VSS_Block program) {
         }
     }
     
+    // 3. Verify class hierarchy and interface requirements
     for (size_t i = 0; i < class_count; i++) {
         SemClass *cls = &classes[i];
+        VSS_Stmt *cls_stmt = find_stmt_for_class(program, cls->name);
+        int line = cls_stmt ? cls_stmt->line : 0;
+        int col = cls_stmt ? cls_stmt->column : 0;
         if (cls->parent_name) {
             SemClass *parent = find_class(cls->parent_name);
             if (!parent) {
-                fprintf(stderr, "error: Parent class '%s' of class '%s' not found.\n", cls->parent_name, cls->name);
+                sem_error(line, col, "Parent class '%s' of class '%s' not found.", cls->parent_name, cls->name);
                 return false;
             }
             if (has_inheritance_loop(cls)) {
-                fprintf(stderr, "error: Circular inheritance loop detected involving class '%s'.\n", cls->name);
+                sem_error(line, col, "Circular inheritance loop detected involving class '%s'.", cls->name);
                 return false;
             }
         }
@@ -557,25 +605,26 @@ bool vss_semantic_analyze(VSS_Block program) {
         for (size_t j = 0; j < cls->interface_count; j++) {
             SemInterface *iface = find_interface(cls->interfaces[j]);
             if (!iface) {
-                fprintf(stderr, "error: Interface '%s' implemented by class '%s' not found.\n", cls->interfaces[j], cls->name);
+                sem_error(line, col, "Interface '%s' implemented by class '%s' not found.", cls->interfaces[j], cls->name);
                 return false;
             }
             for (size_t k = 0; k < iface->task_count; k++) {
                 SemTaskSig *req = &iface->tasks[k];
                 SemTaskSig *impl = find_class_method(cls, req->name);
                 if (!impl) {
-                    fprintf(stderr, "error: Class '%s' does not implement required interface task '%s' from '%s'.\n", cls->name, req->name, iface->name);
+                    sem_error(line, col, "Class '%s' does not implement required interface task '%s' from '%s'.", cls->name, req->name, iface->name);
                     return false;
                 }
                 if (impl->param_count != req->param_count) {
-                    fprintf(stderr, "error: Class '%s' implements '%s' with wrong parameter count (expected %zu, got %zu).\n",
-                            cls->name, req->name, req->param_count, impl->param_count);
+                    sem_error(line, col, "Class '%s' implements '%s' with wrong parameter count (expected %zu, got %zu).",
+                              cls->name, req->name, req->param_count, impl->param_count);
                     return false;
                 }
             }
         }
     }
     
+    // 4. Type check statements
     SemScope global_scope;
     global_scope.vars = NULL;
     global_scope.parent = NULL;

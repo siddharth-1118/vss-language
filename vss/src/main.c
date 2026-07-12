@@ -246,6 +246,8 @@ static void start_server(int port) {
 int main(int argc, char **argv) {
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
+    extern void vss_set_args(int argc, char **argv);
+    vss_set_args(argc, argv);
     if (argc == 2 && (strcmp(argv[1], "--serve") == 0 || strcmp(argv[1], "-s") == 0)) {
         start_server(8080);
         return 0;

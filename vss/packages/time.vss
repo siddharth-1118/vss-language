@@ -1,0 +1,3 @@
+keep now = __time_now
+keep sleep = __time_sleep
+keep format = __time_format

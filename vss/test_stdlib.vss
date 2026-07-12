@@ -1,0 +1,39 @@
+grab math
+grab string
+grab file
+grab json
+grab time
+grab random
+grab system
+grab crypto
+grab network
+
+say "Math sin(0):"
+say math.sin(0)
+
+say "String lower:"
+say string.lower("VSS")
+
+say "File operations:"
+file.write("hello from stdlib", "temp_stdlib.txt")
+say file.read("temp_stdlib.txt")
+file.delete("temp_stdlib.txt")
+
+say "JSON parsing:"
+make parsed = json.parse("{\"a\": 12.3}")
+say parsed
+
+say "Time now:"
+say time.now()
+
+say "Random number:"
+say random.number()
+
+say "System platform:"
+say system.platform()
+
+say "Crypto md5 of hello:"
+say crypto.md5("hello")
+
+say "Network ping localhost:"
+say network.ping("127.0.0.1")

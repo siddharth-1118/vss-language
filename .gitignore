@@ -4,6 +4,15 @@ vss/vss_asan
 *.o
 *.obj
 
+# MSVC artifacts
+*.pdb
+*.ilk
+*.exp
+*.lib
+
+# Windows PE binaries (tracked separately via releases)
+vss/vss.exe
+
 # Generated HTML outputs
 *.html
 !examples/*.html
@@ -19,3 +28,9 @@ temp_serve.html
 # OS temp files
 .DS_Store
 Thumbs.db
+
+# VSS temporary files
+vss_temp_*.txt
+
+# VSIX packages (uploaded to marketplace separately)
+vss-support/*.vsix

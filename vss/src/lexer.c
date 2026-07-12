@@ -244,7 +244,30 @@ VSS_Token vss_lexer_next(VSS_Lexer *lexer) {
         case '.': return make_token(lexer, VSS_TOKEN_DOT);
         case '(': return make_token(lexer, VSS_TOKEN_LEFT_PAREN);
         case ')': return make_token(lexer, VSS_TOKEN_RIGHT_PAREN);
-        case '=': return make_token(lexer, VSS_TOKEN_EQUAL);
+        case '<':
+            if (peek_char(lexer) == '=') {
+                advance_char(lexer);
+                return error_token(lexer, "Unexpected '<='. In VSS, use 'at_most'.");
+            }
+            return error_token(lexer, "Unexpected '<'. In VSS, use 'below'.");
+        case '>':
+            if (peek_char(lexer) == '=') {
+                advance_char(lexer);
+                return error_token(lexer, "Unexpected '>='. In VSS, use 'at_least'.");
+            }
+            return error_token(lexer, "Unexpected '>'. In VSS, use 'above'.");
+        case '!':
+            if (peek_char(lexer) == '=') {
+                advance_char(lexer);
+                return error_token(lexer, "Unexpected '!='. In VSS, use 'not_same_as'.");
+            }
+            return error_token(lexer, "Unexpected '!'. In VSS, use 'not'.");
+        case '=':
+            if (peek_char(lexer) == '=') {
+                advance_char(lexer);
+                return error_token(lexer, "Unexpected '=='. In VSS, use 'same_as'.");
+            }
+            return make_token(lexer, VSS_TOKEN_EQUAL);
         case '#': {
             if (peek_char(lexer) == '#' && peek_next_char(lexer) == '#') {
                 // Consume the other two '#'

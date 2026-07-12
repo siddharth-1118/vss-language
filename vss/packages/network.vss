@@ -1,0 +1,2 @@
+keep resolve = __network_resolve
+keep ping = __network_ping

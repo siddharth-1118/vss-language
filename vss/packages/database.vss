@@ -1,0 +1,17 @@
+task open(path)
+    make db_handle = __db_open(path)
+    
+    object Connection
+        make handle = db_handle
+        
+        task execute(sql)
+            send __db_execute(handle, sql)
+        end
+        
+        task query(sql)
+            send __db_query(handle, sql)
+        end
+    end
+    
+    send Connection()
+end

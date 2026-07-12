@@ -1,8 +1,8 @@
 {
   "name": "vss-language",
-  "displayName": "Very Simple Syntax Language",
-  "description": "Syntax highlighting and real-time diagnostics for VSS and HTMVSS files",
-  "version": "2.0.0",
+  "displayName": "VSS Language",
+  "description": "Syntax highlighting, diagnostics, and language support for the VSS (Very Simple Syntax) programming language",
+  "version": "2.1.0",
   "publisher": "saisiddharth",
   "engines": {
     "vscode": "^1.60.0"
@@ -11,6 +11,21 @@
   "categories": [
     "Programming Languages"
   ],
+  "keywords": [
+    "vss",
+    "very simple syntax",
+    "scripting",
+    "language",
+    "syntax highlighting"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/siddharth-1118/vss-language"
+  },
+  "bugs": {
+    "url": "https://github.com/siddharth-1118/vss-language/issues"
+  },
+  "homepage": "https://github.com/siddharth-1118/vss-language#readme",
   "activationEvents": [
     "onLanguage:vss"
   ],
@@ -21,6 +36,7 @@
         "id": "vss",
         "aliases": [
           "VSS",
+          "Very Simple Syntax",
           "vss"
         ],
         "extensions": [

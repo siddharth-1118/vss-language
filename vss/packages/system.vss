@@ -1,0 +1,5 @@
+keep args = __system_args
+keep env = __system_env
+keep exit = __system_exit
+keep platform = __system_platform
+keep run = __system_run

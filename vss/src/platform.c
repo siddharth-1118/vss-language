@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char *vss_current_source = NULL;
+
 static char *platform_strdup(const char *s) {
     if (!s) return NULL;
     char *dup = malloc(strlen(s) + 1);
@@ -140,6 +142,40 @@ int vss_scan_htmvss(const char *path, char ***filenames) {
     int count = 0;
     char **list = NULL;
     do {
+        list = realloc(list, sizeof(char*) * (count + 1));
+        list[count] = platform_strdup(fd.cFileName);
+        count++;
+    } while (FindNextFileA(hFind, &fd));
+    
+    FindClose(hFind);
+    *filenames = list;
+    return count;
+}
+
+int vss_list_dir(const char *path, char ***filenames) {
+    size_t path_len = strlen(path);
+    size_t total_len = path_len + 5; // path + "\\*" + null
+    char *search_path = malloc(total_len);
+    if (!search_path) {
+        *filenames = NULL;
+        return 0;
+    }
+    snprintf(search_path, total_len, "%s\\*", path);
+    
+    WIN32_FIND_DATAA fd;
+    HANDLE hFind = FindFirstFileA(search_path, &fd);
+    free(search_path);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        *filenames = NULL;
+        return 0;
+    }
+    
+    int count = 0;
+    char **list = NULL;
+    do {
+        if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) {
+            continue;
+        }
         list = realloc(list, sizeof(char*) * (count + 1));
         list[count] = platform_strdup(fd.cFileName);
         count++;
@@ -292,6 +328,29 @@ int vss_scan_htmvss(const char *path, char ***filenames) {
             list[count] = platform_strdup(dir->d_name);
             count++;
         }
+    }
+    closedir(d);
+    *filenames = list;
+    return count;
+}
+
+int vss_list_dir(const char *path, char ***filenames) {
+    DIR *d = opendir(path);
+    if (!d) {
+        *filenames = NULL;
+        return 0;
+    }
+    
+    int count = 0;
+    char **list = NULL;
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0) {
+            continue;
+        }
+        list = realloc(list, sizeof(char*) * (count + 1));
+        list[count] = platform_strdup(dir->d_name);
+        count++;
     }
     closedir(d);
     *filenames = list;

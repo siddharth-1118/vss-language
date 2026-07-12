@@ -4,12 +4,60 @@
 
 #include "parser.h"
 
+static const char *get_suggestion(VSS_Token *token) {
+    if (token->type == VSS_TOKEN_IDENTIFIER) {
+        if (strncmp(token->start, "return", token->length) == 0 && token->length == 6) {
+            return "use 'send' instead of 'return'";
+        }
+        if (strncmp(token->start, "while", token->length) == 0 && token->length == 5) {
+            return "use 'during' instead of 'while'";
+        }
+        if (strncmp(token->start, "import", token->length) == 0 && token->length == 6) {
+            return "use 'grab' instead of 'import'";
+        }
+        if (strncmp(token->start, "print", token->length) == 0 && token->length == 5) {
+            return "use 'say' instead of 'print'";
+        }
+        if (strncmp(token->start, "println", token->length) == 0 && token->length == 7) {
+            return "use 'say' instead of 'println'";
+        }
+        if (strncmp(token->start, "true", token->length) == 0 && token->length == 4) {
+            return "use 'yes' instead of 'true'";
+        }
+        if (strncmp(token->start, "false", token->length) == 0 && token->length == 5) {
+            return "use 'no' instead of 'false'";
+        }
+        if (strncmp(token->start, "null", token->length) == 0 && token->length == 4) {
+            return "use 'empty' instead of 'null'";
+        }
+        if (strncmp(token->start, "nil", token->length) == 0 && token->length == 3) {
+            return "use 'empty' instead of 'nil'";
+        }
+        if (strncmp(token->start, "def", token->length) == 0 && token->length == 3) {
+            return "use 'task' instead of 'def'";
+        }
+        if (strncmp(token->start, "func", token->length) == 0 && token->length == 4) {
+            return "use 'task' instead of 'func'";
+        }
+        if (strncmp(token->start, "function", token->length) == 0 && token->length == 8) {
+            return "use 'task' instead of 'function'";
+        }
+        if (strncmp(token->start, "elif", token->length) == 0 && token->length == 4) {
+            return "use 'orwhen' instead of 'elif'";
+        }
+        if (strncmp(token->start, "else", token->length) == 0 && token->length == 4) {
+            return "use 'otherwise' instead of 'else'";
+        }
+    }
+    return NULL;
+}
+
 static void error_at(VSS_Parser *parser, VSS_Token *token, const char *message) {
     if (parser->panic_mode) return;
     parser->panic_mode = true;
     parser->had_error = true;
 
-    fprintf(stderr, "error line %d, col %d: ", token->line, token->column);
+    fprintf(stderr, "\033[1;31merror:\033[0m line %d, col %d: ", token->line, token->column);
     if (token->type == VSS_TOKEN_EOF) {
         fprintf(stderr, "at end of file: ");
     } else if (token->type == VSS_TOKEN_ERROR) {
@@ -18,6 +66,41 @@ static void error_at(VSS_Parser *parser, VSS_Token *token, const char *message) 
         fprintf(stderr, "at '%.*s': ", (int)token->length, token->start);
     }
     fprintf(stderr, "%s\n", message);
+
+    if (vss_current_source && token->start && token->type != VSS_TOKEN_EOF) {
+        const char *line_start = token->start;
+        while (line_start > vss_current_source && *(line_start - 1) != '\n' && *(line_start - 1) != '\r') {
+            line_start--;
+        }
+        const char *line_end = token->start;
+        while (*line_end != '\0' && *line_end != '\n' && *line_end != '\r') {
+            line_end++;
+        }
+        int line_len = (int)(line_end - line_start);
+        fprintf(stderr, " %4d | %.*s\n", token->line, line_len, line_start);
+
+        fprintf(stderr, "      | ");
+        const char *p = line_start;
+        while (p < token->start) {
+            if (*p == '\t') {
+                fprintf(stderr, "    ");
+            } else {
+                fprintf(stderr, " ");
+            }
+            p++;
+        }
+        int len = (token->length > 0) ? (int)token->length : 1;
+        fprintf(stderr, "\033[1;31m");
+        for (int i = 0; i < len; i++) {
+            fprintf(stderr, "^");
+        }
+        fprintf(stderr, "\033[0m\n");
+    }
+
+    const char *suggestion = get_suggestion(token);
+    if (suggestion) {
+        fprintf(stderr, "      | \033[1;36mhint:\033[0m %s\n", suggestion);
+    }
 }
 
 static void advance(VSS_Parser *parser) {
@@ -132,16 +215,22 @@ static VSS_Expr *parse_interpolated_string(VSS_Parser *parser, const char *str, 
             VSS_Parser temp_parser;
             vss_parser_init(&temp_parser, &temp_lexer);
             VSS_Expr *inner_expr = parse_expression(&temp_parser);
-            free(expr_str);
             
-            if (temp_parser.had_error) {
-                error_at(parser, &parser->current, "Error parsing expression in interpolation.");
-            } else {
-                if (!expr) {
-                    expr = inner_expr;
-                } else {
-                    expr = vss_expr_new_binary(VSS_TOKEN_PLUS, expr, inner_expr, line, column);
+            bool is_valid = !temp_parser.had_error && (temp_parser.current.type == VSS_TOKEN_EOF);
+            if (!is_valid) {
+                if (inner_expr) {
+                    vss_expr_free(inner_expr);
                 }
+                free(expr_str);
+                p++;
+                continue;
+            }
+            
+            free(expr_str);
+            if (!expr) {
+                expr = inner_expr;
+            } else {
+                expr = vss_expr_new_binary(VSS_TOKEN_PLUS, expr, inner_expr, line, column);
             }
             
             p++;
@@ -313,7 +402,15 @@ static VSS_Expr *parse_postfix(VSS_Parser *parser) {
             expr = vss_expr_new_field_access(expr, field, op.line, op.column);
         } else if (match(parser, VSS_TOKEN_DOT)) {
             VSS_Token op = parser->previous;
-            consume(parser, VSS_TOKEN_IDENTIFIER, "Expected field or method name after '.'.");
+            VSS_TokenType type = parser->current.type;
+            bool is_id = (type == VSS_TOKEN_IDENTIFIER) || 
+                         (type >= VSS_TOKEN_SAY && type <= VSS_TOKEN_HTMVSS) ||
+                         (type >= VSS_TOKEN_OBJECT && type <= VSS_TOKEN_PARENT);
+            if (!is_id) {
+                error_at(parser, &parser->current, "Expected field or method name after '.'.");
+                return expr;
+            }
+            advance(parser);
             char *field_name = parse_string_value(parser->previous.start, parser->previous.length);
             VSS_Expr *field = vss_expr_new_string(field_name, parser->previous.line, parser->previous.column);
             free(field_name);
@@ -373,7 +470,6 @@ static char *parse_string_value(const char *start, size_t length) {
         start++;
         length -= 2;
     }
-    
     char *result = malloc(length + 1);
     size_t r = 0;
     for (size_t i = 0; i < length; i++) {
@@ -984,6 +1080,32 @@ void vss_parser_init(VSS_Parser *parser, VSS_Lexer *lexer) {
     advance(parser); // Populate current token
 }
 
+static void synchronize(VSS_Parser *parser) {
+    parser->panic_mode = false;
+    while (parser->current.type != VSS_TOKEN_EOF) {
+        if (parser->previous.type == VSS_TOKEN_NEWLINE) return;
+        switch (parser->current.type) {
+            case VSS_TOKEN_SAY:
+            case VSS_TOKEN_MAKE:
+            case VSS_TOKEN_KEEP:
+            case VSS_TOKEN_WHEN:
+            case VSS_TOKEN_REPEAT:
+            case VSS_TOKEN_DURING:
+            case VSS_TOKEN_TASK:
+            case VSS_TOKEN_CHOOSE:
+            case VSS_TOKEN_ATTEMPT:
+            case VSS_TOKEN_GRAB:
+            case VSS_TOKEN_OBJECT:
+            case VSS_TOKEN_CHOICES:
+            case VSS_TOKEN_INTERFACE:
+                return;
+            default:
+                break;
+        }
+        advance(parser);
+    }
+}
+
 VSS_Block vss_parse_program(VSS_Parser *parser) {
     VSS_Stmt **statements = NULL;
     size_t count = 0;
@@ -995,6 +1117,8 @@ VSS_Block vss_parse_program(VSS_Parser *parser) {
         if (stmt) {
             statements = realloc(statements, sizeof(VSS_Stmt*) * (count + 1));
             statements[count++] = stmt;
+        } else {
+            synchronize(parser);
         }
         
         if (check(parser, VSS_TOKEN_EOF)) break;

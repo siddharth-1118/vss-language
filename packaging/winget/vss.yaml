@@ -1,18 +1,34 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
 PackageIdentifier: VSS.VSS
-PackageVersion: 1.0.0
+PackageVersion: 2.1.0
 PackageName: VSS Programming Language
 Publisher: VSS Core Team
+PublisherUrl: https://github.com/siddharth-1118/vss-language
+PublisherSupportUrl: https://github.com/siddharth-1118/vss-language/issues
 License: MIT
-ShortDescription: The VSS Programming Language Compiler and VM
+LicenseUrl: https://github.com/siddharth-1118/vss-language/blob/main/LICENSE
+Copyright: Copyright (c) 2024-2026 VSS Core Team
+ShortDescription: The VSS (Very Simple Syntax) Programming Language Compiler and Runtime
+Description: |-
+  VSS is a beginner-friendly, dynamically typed scripting language with a clean,
+  English-like syntax. Version 2.1 ships a complete standard library (math, string,
+  file, json, http, time, random, system, database, crypto, network), a native
+  bytecode VM, colored error diagnostics, and the grab module system.
+Moniker: vss
+Tags:
+  - programming-language
+  - scripting
+  - compiler
+  - cli
+ReleaseNotesUrl: https://github.com/siddharth-1118/vss-language/releases/tag/v2.1.0
 Installers:
   - Architecture: x64
     InstallerType: zip
-    InstallerUrl: https://github.com/siddharth-1118/vss-language/releases/download/v1.0.0/vss-windows-amd64.zip
-    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000 # Replace with actual release zip SHA256 hash
+    InstallerUrl: https://github.com/siddharth-1118/vss-language/releases/download/v2.1.0/vss-windows-x64.zip
+    InstallerSha256: PLACEHOLDER_SHA256_REPLACE_AFTER_RELEASE
     NestedInstallerType: portable
     NestedInstallerFiles:
-      - RelativeFilePath: vss.exe
+      - RelativeFilePath: vss-windows-x64\vss.exe
         PortableCommandAlias: vss
 ManifestType: singleton
 ManifestVersion: 1.6.0

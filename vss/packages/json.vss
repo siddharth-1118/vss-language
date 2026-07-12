@@ -1,0 +1,6 @@
+keep json = map [
+    "read": __json_read
+    "write": __json_write
+    "parse": __json_parse
+    "stringify": __json_stringify
+]

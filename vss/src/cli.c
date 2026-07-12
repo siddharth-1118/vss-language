@@ -189,25 +189,31 @@ static int run_file(const char *path) {
             return 1;
         }
         
+        vss_current_source = source;
         VSS_Lexer lexer;
         vss_lexer_init(&lexer, source);
         VSS_Parser parser;
         vss_parser_init(&parser, &lexer);
         VSS_Block ast = vss_parse_program(&parser);
-        free(source);
         
         if (parser.had_error) {
             vss_block_free(ast);
+            free(source);
+            vss_current_source = NULL;
             return 1;
         }
         
         if (!vss_semantic_analyze(ast)) {
             vss_block_free(ast);
+            free(source);
+            vss_current_source = NULL;
             return 1;
         }
         
         main_func = vss_compile_program(ast);
         vss_block_free(ast);
+        free(source);
+        vss_current_source = NULL;
     }
     
     if (!main_func) {
@@ -233,25 +239,31 @@ static int build_file(const char *path) {
         return 1;
     }
     
+    vss_current_source = source;
     VSS_Lexer lexer;
     vss_lexer_init(&lexer, source);
     VSS_Parser parser;
     vss_parser_init(&parser, &lexer);
     VSS_Block ast = vss_parse_program(&parser);
-    free(source);
     
     if (parser.had_error) {
         vss_block_free(ast);
+        free(source);
+        vss_current_source = NULL;
         return 1;
     }
     
     if (!vss_semantic_analyze(ast)) {
         vss_block_free(ast);
+        free(source);
+        vss_current_source = NULL;
         return 1;
     }
     
     VSS_ObjFunction *main_func = vss_compile_program(ast);
     vss_block_free(ast);
+    free(source);
+    vss_current_source = NULL;
     
     if (!main_func) {
         fprintf(stderr, "\033[1;31mError:\033[0m Compilation failed.\n");

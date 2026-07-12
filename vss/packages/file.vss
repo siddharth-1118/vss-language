@@ -1,0 +1,8 @@
+keep file = map [
+    "read": __read
+    "write": __write
+    "exists": __exists
+    "append": __add
+    "delete": __erase
+    "list": __file_list
+]

@@ -1,0 +1,2 @@
+keep md5 = __crypto_md5
+keep sha256 = __crypto_sha256

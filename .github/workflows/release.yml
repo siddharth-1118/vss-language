@@ -93,6 +93,7 @@ jobs:
             src/main.c src/token.c src/lexer.c src/ast.c src/value.c \
             src/env.c src/parser.c src/interpreter.c src/semantic.c src/chunk.c \
             src/object.c src/compiler.c src/vm.c src/cli.c src/platform.c \
+            src/json.c src/builtins.c \
             -lws2_32 -o vss.exe
 
       # ── Smoke test ────────────────────────────────────────────────────────────

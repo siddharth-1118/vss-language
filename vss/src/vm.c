@@ -192,7 +192,7 @@ static char *read_file_text(const char *path) {
 }
 
 bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
-    if (strcmp(func->name, "__main__") == 0) {
+    if (current_vm_instance == NULL) {
         clear_module_cache();
     }
     VSS_VM vm;
@@ -213,6 +213,7 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
     for (;;) {
         frame = &vm.frames[vm.frame_count - 1];
         uint8_t instruction = *frame->ip++;
+        // fprintf(stderr, "TRACE: opcode %d at IP %td in frame %d\n", instruction, frame->ip - frame->closure->function->chunk.code, vm.frame_count);
         switch (instruction) {
             case VSS_OP_CONSTANT: {
                 uint8_t constant = *frame->ip++;
@@ -596,7 +597,7 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     vss_value_release(pop()); // pop closure
                     push(ret_val);
                     vss_vm_free(&vm);
-                    if (strcmp(func->name, "__main__") == 0) {
+                    if (vm.prev_vm_instance == NULL) {
                         clear_module_cache();
                     }
                     return true;
@@ -1124,12 +1125,18 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     VSS_ValMap *m = exports.as.map;
                     for (size_t i = 0; i < mod_env->count; i++) {
                         if (strncmp(mod_env->items[i].name, "__", 2) == 0) continue;
-                        
                         m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
                         m->entries[m->count].key = safe_strdup(mod_env->items[i].name);
                         m->entries[m->count].value = mod_env->items[i].value;
                         vss_value_retain(mod_env->items[i].value);
                         m->count++;
+                    }
+                    
+                    if (m->count == 1 && strcmp(m->entries[0].key, module_name) == 0) {
+                        VSS_Value inner = m->entries[0].value;
+                        vss_value_retain(inner);
+                        vss_value_release(exports);
+                        exports = inner;
                     }
                     
                     CachedModule *load_entry = get_cached_module(module_name);
@@ -1148,6 +1155,7 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     vss_env_define(vm.globals, m->entries[i].key, m->entries[i].value);
                 }
                 
+                vss_value_release(exports);
                 break;
             }
             case VSS_OP_HI_HTMVSS:

@@ -5,4 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+extern const char *vss_current_source;
+
 #endif
+

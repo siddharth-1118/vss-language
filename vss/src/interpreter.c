@@ -50,160 +50,8 @@ static VSS_FlowResult flow_error(int line, int col, const char *format, ...) {
 // Forward declarations of evaluation helpers
 static VSS_FlowResult eval_expr(VSS_Expr *expr, VSS_Env *env, VSS_Value *out_val);
 
-// Built-in Native Functions
-static VSS_Value builtin_size(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 1) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("size of expects exactly 1 argument");
-        return vss_value_new_empty();
-    }
-    VSS_Value val = args[0];
-    if (val.type == VSS_VAL_LIST) {
-        return vss_value_new_number(val.as.list->count);
-    } else if (val.type == VSS_VAL_MAP) {
-        return vss_value_new_number(val.as.map->count);
-    } else if (val.type == VSS_VAL_STRING) {
-        return vss_value_new_number(strlen(val.as.string->chars));
-    } else {
-        *out_error = true;
-        *out_error_msg = safe_strdup("size of expects a list, map, or string");
-        return vss_value_new_empty();
-    }
-}
+// Built-in Native Functions are registered from builtins.c
 
-static VSS_Value builtin_exists(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 1) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("exists expects exactly 1 argument");
-        return vss_value_new_empty();
-    }
-    if (args[0].type != VSS_VAL_STRING) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("exists expects a string file path");
-        return vss_value_new_empty();
-    }
-    const char *path = args[0].as.string->chars;
-    FILE *f = fopen(path, "rb");
-    if (f) {
-        fclose(f);
-        return vss_value_new_bool(true);
-    }
-    return vss_value_new_bool(false);
-}
-
-static VSS_Value builtin_read(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 1) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("read expects exactly 1 argument");
-        return vss_value_new_empty();
-    }
-    if (args[0].type != VSS_VAL_STRING) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("read expects a string file path");
-        return vss_value_new_empty();
-    }
-    const char *path = args[0].as.string->chars;
-    FILE *file = fopen(path, "rb");
-    if (!file) {
-        *out_error = true;
-        *out_error_msg = malloc(strlen(path) + 32);
-        sprintf(*out_error_msg, "Could not open file for reading: %s", path);
-        return vss_value_new_empty();
-    }
-
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    rewind(file);
-
-    char *buffer = malloc(size + 1);
-    size_t read_bytes = fread(buffer, 1, size, file);
-    fclose(file);
-    buffer[read_bytes] = '\0';
-
-    VSS_Value res = vss_value_new_string(buffer);
-    free(buffer);
-    return res;
-}
-
-static VSS_Value builtin_write(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 2) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("write expects content and path");
-        return vss_value_new_empty();
-    }
-    if (args[0].type != VSS_VAL_STRING || args[1].type != VSS_VAL_STRING) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("write expects string content and path");
-        return vss_value_new_empty();
-    }
-    const char *content = args[0].as.string->chars;
-    const char *path = args[1].as.string->chars;
-    FILE *file = fopen(path, "wb");
-    if (!file) {
-        *out_error = true;
-        *out_error_msg = malloc(strlen(path) + 32);
-        sprintf(*out_error_msg, "Could not open file for writing: %s", path);
-        return vss_value_new_empty();
-    }
-    fwrite(content, 1, strlen(content), file);
-    fclose(file);
-    return vss_value_new_empty();
-}
-
-static VSS_Value builtin_add(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 2) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("add expects content and path");
-        return vss_value_new_empty();
-    }
-    if (args[0].type != VSS_VAL_STRING || args[1].type != VSS_VAL_STRING) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("add expects string content and path");
-        return vss_value_new_empty();
-    }
-    const char *content = args[0].as.string->chars;
-    const char *path = args[1].as.string->chars;
-    FILE *file = fopen(path, "ab");
-    if (!file) {
-        *out_error = true;
-        *out_error_msg = malloc(strlen(path) + 32);
-        sprintf(*out_error_msg, "Could not open file for appending: %s", path);
-        return vss_value_new_empty();
-    }
-    fwrite(content, 1, strlen(content), file);
-    fclose(file);
-    return vss_value_new_empty();
-}
-
-static VSS_Value builtin_erase(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
-    if (arg_count != 1) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("erase expects exactly 1 argument");
-        return vss_value_new_empty();
-    }
-    if (args[0].type != VSS_VAL_STRING) {
-        *out_error = true;
-        *out_error_msg = safe_strdup("erase expects a string file path");
-        return vss_value_new_empty();
-    }
-    const char *path = args[0].as.string->chars;
-    if (remove(path) != 0) {
-        *out_error = true;
-        *out_error_msg = malloc(strlen(path) + 32);
-        sprintf(*out_error_msg, "Could not delete file: %s", path);
-        return vss_value_new_empty();
-    }
-    return vss_value_new_empty();
-}
-
-void vss_register_builtins(VSS_Env *env) {
-    vss_env_define(env, "__size", vss_value_new_native(builtin_size));
-    vss_env_define(env, "__exists", vss_value_new_native(builtin_exists));
-    vss_env_define(env, "__read", vss_value_new_native(builtin_read));
-    vss_env_define(env, "__write", vss_value_new_native(builtin_write));
-    vss_env_define(env, "__add", vss_value_new_native(builtin_add));
-    vss_env_define(env, "__erase", vss_value_new_native(builtin_erase));
-}
 
 // Expression evaluation
 static VSS_FlowResult eval_expr(VSS_Expr *expr, VSS_Env *env, VSS_Value *out_val) {
@@ -949,7 +797,10 @@ static VSS_FlowResult exec_stmt(VSS_Stmt *stmt, VSS_Env *env) {
             snprintf(filepath, sizeof(filepath), "%s.vss", stmt->as.grab.module_name);
             FILE *f = fopen(filepath, "rb");
             if (!f) {
-                // Try examples/ directory or same dir
+                snprintf(filepath, sizeof(filepath), "packages/%s.vss", stmt->as.grab.module_name);
+                f = fopen(filepath, "rb");
+            }
+            if (!f) {
                 snprintf(filepath, sizeof(filepath), "examples/%s.vss", stmt->as.grab.module_name);
                 f = fopen(filepath, "rb");
             }
@@ -991,18 +842,38 @@ static VSS_FlowResult exec_stmt(VSS_Stmt *stmt, VSS_Env *env) {
                 return mod_res;
             }
 
-            // Copy all bindings from module_env to current env
+            // Create the exports map
+            VSS_Value exports = vss_value_new_map();
+            VSS_ValMap *m = exports.as.map;
             for (size_t i = 0; i < mod_env->count; i++) {
-                // Skip built-ins starting with double underscore
                 if (strncmp(mod_env->items[i].name, "__", 2) == 0) continue;
-                
-                if (mod_env->items[i].is_constant) {
-                    vss_env_define_const(env, mod_env->items[i].name, mod_env->items[i].value);
-                } else {
-                    vss_env_define(env, mod_env->items[i].name, mod_env->items[i].value);
+                m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
+                m->entries[m->count].key = safe_strdup(mod_env->items[i].name);
+                m->entries[m->count].value = mod_env->items[i].value;
+                vss_value_retain(mod_env->items[i].value);
+                m->count++;
+            }
+            
+            // Unwrap if single exported item has the module's name
+            if (m->count == 1 && strcmp(m->entries[0].key, stmt->as.grab.module_name) == 0) {
+                VSS_Value inner = m->entries[0].value;
+                vss_value_retain(inner);
+                vss_value_release(exports);
+                exports = inner;
+            }
+            
+            // Define module name namespace
+            vss_env_define(env, stmt->as.grab.module_name, exports);
+            
+            // Define individual exports in current env if not name-conflicting
+            if (exports.type == VSS_VAL_MAP) {
+                VSS_ValMap *em = exports.as.map;
+                for (size_t i = 0; i < em->count; i++) {
+                    vss_env_define(env, em->entries[i].key, em->entries[i].value);
                 }
             }
-
+            
+            vss_value_release(exports);
             vss_env_release(mod_env);
             return flow_normal();
         }

@@ -1,0 +1,19 @@
+task request(method, url, headers, body)
+    send __http_request(method, url, headers, body)
+end
+
+task get(url)
+    send request("GET", url, {}, "")
+end
+
+task post(url, body)
+    send request("POST", url, {}, body)
+end
+
+task put(url, body)
+    send request("PUT", url, {}, body)
+end
+
+task delete(url)
+    send request("DELETE", url, {}, "")
+end

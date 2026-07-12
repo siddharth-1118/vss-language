@@ -2,21 +2,13 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "VSS",
   "patterns": [
-    {
-      "include": "#comments"
-    },
-    {
-      "include": "#strings"
-    },
-    {
-      "include": "#keywords"
-    },
-    {
-      "include": "#operators"
-    },
-    {
-      "include": "#numbers"
-    }
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#stdlib_modules" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#numbers" },
+    { "include": "#builtins" }
   ],
   "repository": {
     "comments": {
@@ -44,9 +36,18 @@
               "match": "\\\\."
             },
             {
-              "include": "text.html.basic"
+              "name": "variable.other.vss",
+              "match": "\\{[^}]*\\}"
             }
           ]
+        }
+      ]
+    },
+    "stdlib_modules": {
+      "patterns": [
+        {
+          "name": "support.class.vss",
+          "match": "\\b(math|string|file|json|http|time|random|system|database|crypto|network)\\b"
         }
       ]
     },
@@ -54,11 +55,11 @@
       "patterns": [
         {
           "name": "keyword.control.vss",
-          "match": "\\b(when|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss|object|extends|implements|choices|interface)\\b"
+          "match": "\\b(when|orwhen|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss|object|extends|implements|choices|interface)\\b"
         },
         {
           "name": "keyword.other.vss",
-          "match": "\\b(make|keep|becomes|say|put|into|set|field|item)\\b"
+          "match": "\\b(make|keep|becomes|say|put|into|set|field|item|read|write|add|erase|map)\\b"
         },
         {
           "name": "variable.language.vss",
@@ -66,7 +67,7 @@
         },
         {
           "name": "constant.language.boolean.vss",
-          "match": "\\b(yes|no)\\b"
+          "match": "\\b(yes|no|empty)\\b"
         }
       ]
     },
@@ -74,11 +75,15 @@
       "patterns": [
         {
           "name": "keyword.operator.word.vss",
-          "match": "\\b(same_as|not_same_as|above|below|at_least|at_most|not|of|exists|size)\\b"
+          "match": "\\b(same_as|not_same_as|above|below|at_least|at_most|not|of|exists|size|and|or)\\b"
         },
         {
           "name": "keyword.operator.arithmetic.vss",
           "match": "(\\+|\\-|\\*|/|%)"
+        },
+        {
+          "name": "keyword.operator.comparison.vss",
+          "match": "(==|!=|<=|>=|<|>)"
         }
       ]
     },
@@ -87,6 +92,14 @@
         {
           "name": "constant.numeric.vss",
           "match": "\\b\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.vss",
+          "match": "\\b(__[a-z_]+)\\b"
         }
       ]
     }
