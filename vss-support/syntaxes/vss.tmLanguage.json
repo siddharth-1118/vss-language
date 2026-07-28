@@ -55,7 +55,7 @@
       "patterns": [
         {
           "name": "keyword.control.vss",
-          "match": "\\b(when|orwhen|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss|object|extends|implements|choices|interface)\\b"
+          "match": "\\b(when|orwhen|otherwise|finish|repeat|count|each|in|to|by|skip|leave|during|task|needs|send|grab|attempt|rescue|problem|choose|case|hi|bye|htmvss|object|extends|implements|choices|interface|shape|blueprint|match|async|await|yield|coroutine)\\b"
         },
         {
           "name": "keyword.other.vss",

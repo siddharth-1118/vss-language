@@ -254,6 +254,33 @@ VSS_Expr *vss_expr_new_parent(int line, int column) {
     return expr;
 }
 
+VSS_Expr *vss_expr_new_struct_literal(const char *name, char **keys, VSS_Expr **values, size_t count, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
+    if (expr) {
+        expr->kind = VSS_EXPR_STRUCT_LITERAL;
+        expr->line = line;
+        expr->column = column;
+        expr->as.struct_literal.name = safe_strdup(name);
+        expr->as.struct_literal.keys = keys;
+        expr->as.struct_literal.values = values;
+        expr->as.struct_literal.count = count;
+    }
+    return expr;
+}
+
+VSS_Expr *vss_expr_new_closure(char **params, size_t param_count, VSS_Block body, int line, int column) {
+    VSS_Expr *expr = malloc(sizeof(VSS_Expr));
+    if (expr) {
+        expr->kind = VSS_EXPR_CLOSURE;
+        expr->line = line;
+        expr->column = column;
+        expr->as.closure.params = params;
+        expr->as.closure.param_count = param_count;
+        expr->as.closure.body = body;
+    }
+    return expr;
+}
+
 void vss_expr_free(VSS_Expr *expr) {
     if (!expr) return;
     switch (expr->kind) {
@@ -305,6 +332,22 @@ void vss_expr_free(VSS_Expr *expr) {
             break;
         case VSS_EXPR_MINE:
         case VSS_EXPR_PARENT:
+            break;
+        case VSS_EXPR_STRUCT_LITERAL:
+            free(expr->as.struct_literal.name);
+            for (size_t i = 0; i < expr->as.struct_literal.count; i++) {
+                free(expr->as.struct_literal.keys[i]);
+                vss_expr_free(expr->as.struct_literal.values[i]);
+            }
+            free(expr->as.struct_literal.keys);
+            free(expr->as.struct_literal.values);
+            break;
+        case VSS_EXPR_CLOSURE:
+            for (size_t i = 0; i < expr->as.closure.param_count; i++) {
+                free(expr->as.closure.params[i]);
+            }
+            free(expr->as.closure.params);
+            vss_block_free(expr->as.closure.body);
             break;
     }
     free(expr);
@@ -453,6 +496,8 @@ VSS_Stmt *vss_stmt_new_task(const char *name, char **params, size_t param_count,
         stmt->as.task.params = params;
         stmt->as.task.param_count = param_count;
         stmt->as.task.body = body;
+        stmt->as.task.is_coroutine = false;
+        stmt->as.task.is_async = false;
     }
     return stmt;
 }
@@ -698,6 +743,23 @@ void vss_stmt_free(VSS_Stmt *stmt) {
                 free(stmt->as.choices_decl.members);
             }
             break;
+        case VSS_STMT_SHAPE:
+            free(stmt->as.shape_decl.name);
+            if (stmt->as.shape_decl.members) {
+                for (size_t i = 0; i < stmt->as.shape_decl.member_count; i++) {
+                    vss_stmt_free(stmt->as.shape_decl.members[i]);
+                }
+                free(stmt->as.shape_decl.members);
+            }
+            break;
+        case VSS_STMT_FIELD:
+            free(stmt->as.field_decl.name);
+            if (stmt->as.field_decl.type_name) free(stmt->as.field_decl.type_name);
+            if (stmt->as.field_decl.default_value) vss_expr_free(stmt->as.field_decl.default_value);
+            break;
+        case VSS_STMT_YIELD:
+            if (stmt->as.yield_stmt.expression) vss_expr_free(stmt->as.yield_stmt.expression);
+            break;
     }
     free(stmt);
 }
@@ -740,6 +802,43 @@ VSS_Stmt *vss_stmt_new_choices(const char *name, char **members, size_t member_c
         stmt->as.choices_decl.name = safe_strdup(name);
         stmt->as.choices_decl.members = members;
         stmt->as.choices_decl.member_count = member_count;
+    }
+    return stmt;
+}
+
+VSS_Stmt *vss_stmt_new_shape(const char *name, VSS_Stmt **members, size_t member_count, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_SHAPE;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.shape_decl.name = safe_strdup(name);
+        stmt->as.shape_decl.members = members;
+        stmt->as.shape_decl.member_count = member_count;
+    }
+    return stmt;
+}
+
+VSS_Stmt *vss_stmt_new_field(const char *name, const char *type_name, VSS_Expr *default_value, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_FIELD;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.field_decl.name = safe_strdup(name);
+        stmt->as.field_decl.type_name = safe_strdup(type_name);
+        stmt->as.field_decl.default_value = default_value;
+    }
+    return stmt;
+}
+
+VSS_Stmt *vss_stmt_new_yield(VSS_Expr *expression, int line, int column) {
+    VSS_Stmt *stmt = malloc(sizeof(VSS_Stmt));
+    if (stmt) {
+        stmt->kind = VSS_STMT_YIELD;
+        stmt->line = line;
+        stmt->column = column;
+        stmt->as.yield_stmt.expression = expression;
     }
     return stmt;
 }

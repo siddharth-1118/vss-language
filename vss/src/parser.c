@@ -67,12 +67,27 @@ static void error_at(VSS_Parser *parser, VSS_Token *token, const char *message) 
     }
     fprintf(stderr, "%s\n", message);
 
-    if (vss_current_source && token->start && token->type != VSS_TOKEN_EOF) {
-        const char *line_start = token->start;
+    const char *line_start = NULL;
+    bool is_in_source = (vss_current_source && token->start && 
+                         token->start >= vss_current_source && 
+                         token->start < vss_current_source + strlen(vss_current_source));
+    if (is_in_source) {
+        line_start = token->start;
         while (line_start > vss_current_source && *(line_start - 1) != '\n' && *(line_start - 1) != '\r') {
             line_start--;
         }
-        const char *line_end = token->start;
+    } else if (vss_current_source && token->line > 0) {
+        const char *p = vss_current_source;
+        int curr_line = 1;
+        while (*p && curr_line < token->line) {
+            if (*p == '\n') curr_line++;
+            p++;
+        }
+        line_start = p;
+    }
+
+    if (line_start && token->type != VSS_TOKEN_EOF) {
+        const char *line_end = line_start;
         while (*line_end != '\0' && *line_end != '\n' && *line_end != '\r') {
             line_end++;
         }
@@ -80,16 +95,14 @@ static void error_at(VSS_Parser *parser, VSS_Token *token, const char *message) 
         fprintf(stderr, " %4d | %.*s\n", token->line, line_len, line_start);
 
         fprintf(stderr, "      | ");
-        const char *p = line_start;
-        while (p < token->start) {
-            if (*p == '\t') {
+        for (int i = 1; i < token->column; i++) {
+            if (line_start[i - 1] == '\t') {
                 fprintf(stderr, "    ");
             } else {
                 fprintf(stderr, " ");
             }
-            p++;
         }
-        int len = (token->length > 0) ? (int)token->length : 1;
+        int len = (is_in_source && token->length > 0) ? (int)token->length : 1;
         fprintf(stderr, "\033[1;31m");
         for (int i = 0; i < len; i++) {
             fprintf(stderr, "^");
@@ -381,7 +394,7 @@ static VSS_Expr *parse_factor(VSS_Parser *parser) {
 }
 
 static VSS_Expr *parse_unary(VSS_Parser *parser) {
-    if (match(parser, VSS_TOKEN_NOT) || match(parser, VSS_TOKEN_MINUS)) {
+    if (match(parser, VSS_TOKEN_NOT) || match(parser, VSS_TOKEN_MINUS) || match(parser, VSS_TOKEN_AWAIT)) {
         VSS_Token op = parser->previous;
         VSS_Expr *operand = parse_unary(parser);
         return vss_expr_new_unary(op.type, operand, op.line, op.column);
@@ -490,7 +503,139 @@ static char *parse_string_value(const char *start, size_t length) {
     return result;
 }
 
+static bool has_arrow_before_brace(VSS_Parser *parser) {
+    VSS_Lexer temp = *parser->lexer;
+    int brace_depth = 1;
+    for (;;) {
+        VSS_Token tok = vss_lexer_next(&temp);
+        if (tok.type == VSS_TOKEN_EOF) break;
+        if (tok.type == VSS_TOKEN_LEFT_BRACE) brace_depth++;
+        if (tok.type == VSS_TOKEN_RIGHT_BRACE) {
+            brace_depth--;
+            if (brace_depth == 0) break;
+        }
+        if (tok.type == VSS_TOKEN_ARROW && brace_depth == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static VSS_Block parse_closure_block(VSS_Parser *parser) {
+    while (match(parser, VSS_TOKEN_NEWLINE));
+    
+    VSS_Stmt **statements = NULL;
+    size_t count = 0;
+    
+    VSS_Block block;
+    block.statements = NULL;
+    block.count = 0;
+    
+    while (!check(parser, VSS_TOKEN_RIGHT_BRACE) && !check(parser, VSS_TOKEN_EOF)) {
+        VSS_Stmt *stmt = parse_statement(parser);
+        if (stmt) {
+            statements = realloc(statements, sizeof(VSS_Stmt*) * (count + 1));
+            statements[count++] = stmt;
+        }
+        
+        if (check(parser, VSS_TOKEN_EOF)) break;
+        
+        if (!match(parser, VSS_TOKEN_NEWLINE) && !check(parser, VSS_TOKEN_RIGHT_BRACE)) {
+            error_at(parser, &parser->current, "Expected newline after statement in closure block.");
+            while (!is_newline_or_eof(parser)) {
+                advance(parser);
+            }
+            if (check(parser, VSS_TOKEN_NEWLINE)) advance(parser);
+        }
+        while (match(parser, VSS_TOKEN_NEWLINE));
+    }
+    
+    block.statements = statements;
+    block.count = count;
+    return block;
+}
+
 static VSS_Expr *parse_primary(VSS_Parser *parser) {
+    if (match(parser, VSS_TOKEN_LEFT_BRACE)) {
+        VSS_Token op = parser->previous;
+        char **params = NULL;
+        size_t param_count = 0;
+        
+        if (has_arrow_before_brace(parser)) {
+            if (!check(parser, VSS_TOKEN_ARROW)) {
+                do {
+                    consume(parser, VSS_TOKEN_IDENTIFIER, "Expected parameter name.");
+                    char *param = parse_string_value(parser->previous.start, parser->previous.length);
+                    params = realloc(params, sizeof(char*) * (param_count + 1));
+                    params[param_count++] = param;
+                } while (match(parser, VSS_TOKEN_COMMA));
+            }
+            consume(parser, VSS_TOKEN_ARROW, "Expected '->' after parameters.");
+        }
+        
+        VSS_Block body;
+        // Check if there is a newline or statement keyword
+        bool has_nl = false;
+        while (match(parser, VSS_TOKEN_NEWLINE)) {
+            has_nl = true;
+        }
+        
+        if (check(parser, VSS_TOKEN_RIGHT_BRACE)) {
+            body.statements = NULL;
+            body.count = 0;
+        } else {
+            VSS_Token first = parser->current;
+            bool is_stmt_kw = (first.type == VSS_TOKEN_SAY || first.type == VSS_TOKEN_MAKE || 
+                               first.type == VSS_TOKEN_KEEP || first.type == VSS_TOKEN_DURING || 
+                               first.type == VSS_TOKEN_REPEAT || first.type == VSS_TOKEN_WHEN || 
+                               first.type == VSS_TOKEN_SEND);
+            if (has_nl || is_stmt_kw) {
+                body = parse_closure_block(parser);
+            } else {
+                VSS_Expr *expr = parse_expression(parser);
+                VSS_Stmt *send_stmt = vss_stmt_new_send(expr, expr->line, expr->column);
+                VSS_Stmt **stmts = malloc(sizeof(VSS_Stmt*));
+                stmts[0] = send_stmt;
+                body.statements = stmts;
+                body.count = 1;
+            }
+        }
+        consume(parser, VSS_TOKEN_RIGHT_BRACE, "Expected '}' to close closure.");
+        return vss_expr_new_closure(params, param_count, body, op.line, op.column);
+    }
+
+    if (check(parser, VSS_TOKEN_IDENTIFIER)) {
+        VSS_Lexer temp = *parser->lexer;
+        VSS_Token next = vss_lexer_next(&temp);
+        if (next.type == VSS_TOKEN_LEFT_BRACE) {
+            VSS_Token name_tok = parser->current;
+            advance(parser); // Consume identifier
+            advance(parser); // Consume '{'
+            
+            char *struct_name = parse_string_value(name_tok.start, name_tok.length);
+            char **keys = NULL;
+            VSS_Expr **values = NULL;
+            size_t count = 0;
+            
+            while (!check(parser, VSS_TOKEN_RIGHT_BRACE) && !check(parser, VSS_TOKEN_EOF)) {
+                consume(parser, VSS_TOKEN_IDENTIFIER, "Expected field name.");
+                char *key = parse_string_value(parser->previous.start, parser->previous.length);
+                consume(parser, VSS_TOKEN_COLON, "Expected ':' after field name.");
+                VSS_Expr *val = parse_expression(parser);
+                
+                keys = realloc(keys, sizeof(char*) * (count + 1));
+                values = realloc(values, sizeof(VSS_Expr*) * (count + 1));
+                keys[count] = key;
+                values[count] = val;
+                count++;
+                
+                if (!match(parser, VSS_TOKEN_COMMA)) break;
+            }
+            consume(parser, VSS_TOKEN_RIGHT_BRACE, "Expected '}' to close shape literal.");
+            return vss_expr_new_struct_literal(struct_name, keys, values, count, name_tok.line, name_tok.column);
+        }
+    }
+
     if (match(parser, VSS_TOKEN_LEFT_PAREN)) {
         VSS_Expr *expr = parse_expression(parser);
         consume(parser, VSS_TOKEN_RIGHT_PAREN, "Expected ')' after expression.");
@@ -845,25 +990,56 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
         return vss_stmt_new_during(cond, body, op.line, op.column);
     }
     
-    // Task Definition: task
-    if (match(parser, VSS_TOKEN_TASK)) {
-        VSS_Token op = parser->previous;
-        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected task name after 'task'.");
+    // Task Definition: task, async task, coroutine task
+    bool is_coroutine = false;
+    bool is_async = false;
+    VSS_Token op;
+    bool matched_task = false;
+    
+    if (match(parser, VSS_TOKEN_COROUTINE)) {
+        op = parser->previous;
+        consume(parser, VSS_TOKEN_TASK, "Expected 'task' after 'coroutine'.");
+        is_coroutine = true;
+        matched_task = true;
+    } else if (match(parser, VSS_TOKEN_ASYNC)) {
+        op = parser->previous;
+        consume(parser, VSS_TOKEN_TASK, "Expected 'task' after 'async'.");
+        is_async = true;
+        matched_task = true;
+    } else if (match(parser, VSS_TOKEN_TASK)) {
+        op = parser->previous;
+        matched_task = true;
+    }
+    
+    if (matched_task) {
+        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected task name.");
         char *name = parse_string_value(parser->previous.start, parser->previous.length);
         
         char **params = NULL;
         size_t count = 0;
         if (match(parser, VSS_TOKEN_NEEDS)) {
-            while (match(parser, VSS_TOKEN_IDENTIFIER)) {
+            while (check(parser, VSS_TOKEN_IDENTIFIER)) {
+                consume(parser, VSS_TOKEN_IDENTIFIER, "Expected parameter name.");
                 char *p = parse_string_value(parser->previous.start, parser->previous.length);
                 params = realloc(params, sizeof(char*) * (count + 1));
                 params[count++] = p;
+                
+                if (match(parser, VSS_TOKEN_COLON)) {
+                    consume(parser, VSS_TOKEN_IDENTIFIER, "Expected type name after ':'.");
+                }
+                match(parser, VSS_TOKEN_COMMA);
             }
+        }
+        
+        if (match(parser, VSS_TOKEN_ARROW)) {
+            consume(parser, VSS_TOKEN_IDENTIFIER, "Expected return type name after '->'.");
         }
         
         VSS_Block body = parse_block(parser);
         consume(parser, VSS_TOKEN_FINISH, "Expected 'finish' to end task definition.");
         VSS_Stmt *stmt = vss_stmt_new_task(name, params, count, body, op.line, op.column);
+        stmt->as.task.is_coroutine = is_coroutine;
+        stmt->as.task.is_async = is_async;
         free(name);
         return stmt;
     }
@@ -882,8 +1058,8 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
         return stmt;
     }
     
-    // Choose: choose
-    if (match(parser, VSS_TOKEN_CHOOSE)) {
+    // Choose/Match: choose / match
+    if (match(parser, VSS_TOKEN_CHOOSE) || match(parser, VSS_TOKEN_MATCH)) {
         VSS_Token op = parser->previous;
         VSS_Expr *expr = parse_expression(parser);
         
@@ -894,7 +1070,22 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
         
         while (match(parser, VSS_TOKEN_CASE)) {
             VSS_Expr *case_expr = parse_expression(parser);
-            VSS_Block case_block = parse_block(parser);
+            VSS_Block case_block;
+            
+            if (match(parser, VSS_TOKEN_ARROW)) {
+                if (check(parser, VSS_TOKEN_NEWLINE)) {
+                    case_block = parse_block(parser);
+                } else {
+                    VSS_Stmt *stmt = parse_statement(parser);
+                    VSS_Stmt **stmts = malloc(sizeof(VSS_Stmt*));
+                    stmts[0] = stmt;
+                    case_block.statements = stmts;
+                    case_block.count = 1;
+                }
+            } else {
+                case_block = parse_block(parser);
+            }
+            
             cases = realloc(cases, sizeof(VSS_ChooseCase) * (count + 1));
             cases[count].expr = case_expr;
             cases[count].block = case_block;
@@ -903,12 +1094,65 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
         }
         
         VSS_Block otherwise_branch = {NULL, 0};
-        if (match(parser, VSS_TOKEN_OTHERWISE)) {
+        if (match(parser, VSS_TOKEN_OTHERWISE) || match(parser, VSS_TOKEN_ARROW)) {
+            // Note: in case they write otherwise -> ...
             otherwise_branch = parse_block(parser);
         }
         
-        consume(parser, VSS_TOKEN_FINISH, "Expected 'finish' to end 'choose' block.");
+        consume(parser, VSS_TOKEN_FINISH, "Expected 'finish' to end block.");
         return vss_stmt_new_choose(expr, cases, count, otherwise_branch, op.line, op.column);
+    }
+    
+    // Yield: yield
+    if (match(parser, VSS_TOKEN_YIELD)) {
+        VSS_Token op = parser->previous;
+        VSS_Expr *expr = NULL;
+        if (!check(parser, VSS_TOKEN_NEWLINE) && !check(parser, VSS_TOKEN_FINISH) && !check(parser, VSS_TOKEN_EOF)) {
+            expr = parse_expression(parser);
+        }
+        return vss_stmt_new_yield(expr, op.line, op.column);
+    }
+    
+    // Field: field
+    if (match(parser, VSS_TOKEN_FIELD)) {
+        VSS_Token op = parser->previous;
+        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected field name after 'field'.");
+        char *name = parse_string_value(parser->previous.start, parser->previous.length);
+        char *type_name = NULL;
+        if (match(parser, VSS_TOKEN_COLON)) {
+            consume(parser, VSS_TOKEN_IDENTIFIER, "Expected type name after ':'.");
+            type_name = parse_string_value(parser->previous.start, parser->previous.length);
+        }
+        VSS_Expr *default_val = NULL;
+        if (match(parser, VSS_TOKEN_BECOMES) || match(parser, VSS_TOKEN_EQUAL)) {
+            default_val = parse_expression(parser);
+        }
+        VSS_Stmt *stmt = vss_stmt_new_field(name, type_name, default_val, op.line, op.column);
+        free(name);
+        if (type_name) free(type_name);
+        return stmt;
+    }
+    
+    // Shape: shape
+    if (match(parser, VSS_TOKEN_SHAPE)) {
+        VSS_Token op = parser->previous;
+        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected shape name after 'shape'.");
+        char *name = parse_string_value(parser->previous.start, parser->previous.length);
+        while (match(parser, VSS_TOKEN_NEWLINE));
+        
+        VSS_Stmt **members = NULL;
+        size_t member_count = 0;
+        
+        while (!check(parser, VSS_TOKEN_FINISH) && !check(parser, VSS_TOKEN_EOF)) {
+            VSS_Stmt *m = parse_statement(parser);
+            if (m) {
+                members = realloc(members, sizeof(VSS_Stmt*) * (member_count + 1));
+                members[member_count++] = m;
+            }
+            while (match(parser, VSS_TOKEN_NEWLINE));
+        }
+        consume(parser, VSS_TOKEN_FINISH, "Expected 'finish' to end shape declaration.");
+        return vss_stmt_new_shape(name, members, member_count, op.line, op.column);
     }
     
     // Choices: choices
@@ -934,10 +1178,10 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
         return vss_stmt_new_choices(name, members, count, op.line, op.column);
     }
 
-    // Interface: interface
-    if (match(parser, VSS_TOKEN_INTERFACE)) {
+    // Interface/Blueprint: interface / blueprint
+    if (match(parser, VSS_TOKEN_INTERFACE) || match(parser, VSS_TOKEN_BLUEPRINT)) {
         VSS_Token op = parser->previous;
-        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected interface name.");
+        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected interface/blueprint name.");
         char *name = parse_string_value(parser->previous.start, parser->previous.length);
         while (match(parser, VSS_TOKEN_NEWLINE));
         VSS_Stmt **task_decls = NULL;
@@ -949,11 +1193,21 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
             char **params = NULL;
             size_t param_count = 0;
             if (match(parser, VSS_TOKEN_NEEDS)) {
-                while (match(parser, VSS_TOKEN_IDENTIFIER)) {
+                while (check(parser, VSS_TOKEN_IDENTIFIER)) {
+                    consume(parser, VSS_TOKEN_IDENTIFIER, "Expected parameter name.");
                     char *p = parse_string_value(parser->previous.start, parser->previous.length);
                     params = realloc(params, sizeof(char*) * (param_count + 1));
                     params[param_count++] = p;
+                    
+                    if (match(parser, VSS_TOKEN_COLON)) {
+                        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected type name after ':'.");
+                    }
+                    match(parser, VSS_TOKEN_COMMA);
                 }
+            }
+            // Also parse optional arrow / return type: e.g. '-> number'
+            if (match(parser, VSS_TOKEN_ARROW)) {
+                consume(parser, VSS_TOKEN_IDENTIFIER, "Expected return type name after '->'.");
             }
             VSS_Block empty_body = {NULL, 0};
             VSS_Stmt *task_decl = vss_stmt_new_task(task_name, params, param_count, empty_body, task_op.line, task_op.column);
@@ -985,11 +1239,20 @@ static VSS_Stmt *parse_statement(VSS_Parser *parser) {
                 char **params = NULL;
                 size_t param_count = 0;
                 if (match(parser, VSS_TOKEN_NEEDS)) {
-                    while (match(parser, VSS_TOKEN_IDENTIFIER)) {
+                    while (check(parser, VSS_TOKEN_IDENTIFIER)) {
+                        consume(parser, VSS_TOKEN_IDENTIFIER, "Expected parameter name.");
                         char *p = parse_string_value(parser->previous.start, parser->previous.length);
                         params = realloc(params, sizeof(char*) * (param_count + 1));
                         params[param_count++] = p;
+                        
+                        if (match(parser, VSS_TOKEN_COLON)) {
+                            consume(parser, VSS_TOKEN_IDENTIFIER, "Expected type name after ':'.");
+                        }
+                        match(parser, VSS_TOKEN_COMMA);
                     }
+                }
+                if (match(parser, VSS_TOKEN_ARROW)) {
+                    consume(parser, VSS_TOKEN_IDENTIFIER, "Expected return type name after '->'.");
                 }
                 VSS_Block empty_body = {NULL, 0};
                 VSS_Stmt *task_decl = vss_stmt_new_task(task_name, params, param_count, empty_body, task_op.line, task_op.column);

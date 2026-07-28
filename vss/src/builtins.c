@@ -6,6 +6,9 @@
 #  ifndef _DEFAULT_SOURCE
 #    define _DEFAULT_SOURCE 1
 #  endif
+#  ifndef _XOPEN_SOURCE
+#    define _XOPEN_SOURCE 700
+#  endif
 #endif
 
 #include <stdio.h>
@@ -18,6 +21,10 @@
 #include "env.h"
 #include "platform.h"
 #include "json.h"
+#include "lexer.h"
+#include "parser.h"
+#include "compiler.h"
+#include "vm.h"
 
 #ifdef _WIN32
 #  include <windows.h>
@@ -32,6 +39,7 @@
 #  include <sys/socket.h>
 #  include <netdb.h>
 #  include <arpa/inet.h>
+#  include <netinet/in.h>
 #endif
 
 // MD5 and SHA256 self-contained implementations
@@ -1200,6 +1208,8 @@ static VSS_Value builtin_system_env(size_t arg_count, VSS_Value *args, bool *out
 }
 
 static VSS_Value builtin_system_exit(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    (void)out_error;
+    (void)out_error_msg;
     int code = 0;
     if (arg_count == 1 && args[0].type == VSS_VAL_NUMBER) {
         code = (int)args[0].as.number;
@@ -1327,6 +1337,74 @@ static VSS_Value builtin_size(size_t arg_count, VSS_Value *args, bool *out_error
     }
 }
 
+extern VSS_VM *current_vm_instance;
+extern VSS_VM *vss_resume_vm;
+extern VSS_VM *vss_yield_target;
+
+static VSS_Value builtin_generator_create(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    if (arg_count < 1 || args[0].type != VSS_VAL_CLOSURE) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("generator_create expects a closure.");
+        return vss_value_new_empty();
+    }
+    
+    VSS_VM *calling_vm = current_vm_instance;
+    VSS_VM *gen_vm = malloc(sizeof(VSS_VM));
+    VSS_Env *globals = calling_vm ? calling_vm->globals : NULL;
+    vss_vm_init(gen_vm, globals);
+    gen_vm->prev_vm_instance = NULL;
+    
+    gen_vm->stack[0] = args[0];
+    vss_value_retain(args[0]);
+    
+    for (size_t i = 1; i < arg_count; i++) {
+        gen_vm->stack[i] = args[i];
+        vss_value_retain(args[i]);
+    }
+    gen_vm->stack_top = gen_vm->stack + arg_count;
+    
+    VSS_CallFrame *frame = &gen_vm->frames[gen_vm->frame_count++];
+    frame->closure = args[0].as.closure;
+    frame->ip = args[0].as.closure->function->chunk.code;
+    frame->slots = gen_vm->stack;
+    
+    current_vm_instance = calling_vm;
+    
+    double ptr_num = (double)(uintptr_t)gen_vm;
+    return vss_value_new_number(ptr_num);
+}
+
+static VSS_Value builtin_generator_next(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    if (arg_count < 1 || args[0].type != VSS_VAL_NUMBER) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("generator_next expects a generator pointer.");
+        return vss_value_new_empty();
+    }
+    
+    VSS_VM *gen_vm = (VSS_VM*)(uintptr_t)args[0].as.number;
+    if (gen_vm->frame_count == 0) {
+        return vss_value_new_empty();
+    }
+    
+    gen_vm->prev_vm_instance = current_vm_instance;
+    vss_resume_vm = gen_vm;
+    vss_yield_target = gen_vm;
+    
+    vss_vm_run(NULL, NULL);
+    
+    VSS_Value ret_val = vss_value_new_empty();
+    if (gen_vm->yielded) {
+        ret_val = *(--gen_vm->stack_top);
+    } else {
+        ret_val = *(--gen_vm->stack_top);
+        vss_vm_free(gen_vm);
+        free(gen_vm);
+    }
+    
+    return ret_val;
+}
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // REGISTRATION
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1396,4 +1474,60 @@ void vss_register_builtins(VSS_Env *env) {
     // Network
     vss_env_define(env, "__network_resolve", vss_value_new_native(builtin_network_resolve));
     vss_env_define(env, "__network_ping", vss_value_new_native(builtin_network_ping));
+
+    // Generators
+    vss_env_define(env, "__generator_create", vss_value_new_native(builtin_generator_create));
+    vss_env_define(env, "__generator_next", vss_value_new_native(builtin_generator_next));
+
+    // Load VSS Standard Library
+    static const char *stdlib_source =
+        "object Generator\n"
+        "    field _state\n"
+        "    task create needs state\n"
+        "        mine._state becomes state\n"
+        "    finish\n"
+        "    task next needs\n"
+        "        send __generator_next(mine._state)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "task map_list needs list, fn\n"
+        "    make res becomes []\n"
+        "    repeat each x in list\n"
+        "        put fn(x) into res\n"
+        "    finish\n"
+        "    send res\n"
+        "finish\n"
+        "\n"
+        "task filter needs list, fn\n"
+        "    make res becomes []\n"
+        "    repeat each x in list\n"
+        "        when fn(x) same_as yes\n"
+        "            put x into res\n"
+        "        finish\n"
+        "    finish\n"
+        "    send res\n"
+        "finish\n"
+        "\n"
+        "task reduce needs list, initial, fn\n"
+        "    make acc becomes initial\n"
+        "    repeat each x in list\n"
+        "        acc becomes fn(acc, x)\n"
+        "    finish\n"
+        "    send acc\n"
+        "finish\n";
+
+    VSS_Lexer lexer;
+    vss_lexer_init(&lexer, stdlib_source);
+    VSS_Parser parser;
+    vss_parser_init(&parser, &lexer);
+    VSS_Block ast = vss_parse_program(&parser);
+    if (!parser.had_error) {
+        VSS_ObjFunction *func = vss_compile_program(ast);
+        if (func) {
+            vss_vm_run(func, env);
+            vss_function_release(func);
+        }
+        vss_block_free(ast);
+    }
 }

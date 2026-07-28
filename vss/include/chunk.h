@@ -47,6 +47,7 @@ typedef enum {
     VSS_OP_CALL,           // Call a closure or native function (1-byte operand: argument count)
     VSS_OP_CLOSURE,        // Instantiate closure (operand: function index in constants, followed by upvalue layout)
     VSS_OP_RETURN,         // Return from current task
+    VSS_OP_YIELD,          // Yield from current coroutine/generator task
     
     VSS_OP_BUILD_LIST,     // Create list from stack elements (1-byte operand: count)
     VSS_OP_BUILD_MAP,      // Create map from stack elements (1-byte operand: key-value pair count)

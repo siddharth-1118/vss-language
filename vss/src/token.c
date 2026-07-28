@@ -83,6 +83,16 @@ const char *vss_token_type_name(VSS_TokenType type) {
         case VSS_TOKEN_COLON: return "VSS_TOKEN_COLON";
         case VSS_TOKEN_LEFT_PAREN: return "VSS_TOKEN_LEFT_PAREN";
         case VSS_TOKEN_RIGHT_PAREN: return "VSS_TOKEN_RIGHT_PAREN";
+        case VSS_TOKEN_SHAPE: return "VSS_TOKEN_SHAPE";
+        case VSS_TOKEN_BLUEPRINT: return "VSS_TOKEN_BLUEPRINT";
+        case VSS_TOKEN_MATCH: return "VSS_TOKEN_MATCH";
+        case VSS_TOKEN_ASYNC: return "VSS_TOKEN_ASYNC";
+        case VSS_TOKEN_AWAIT: return "VSS_TOKEN_AWAIT";
+        case VSS_TOKEN_YIELD: return "VSS_TOKEN_YIELD";
+        case VSS_TOKEN_COROUTINE: return "VSS_TOKEN_COROUTINE";
+        case VSS_TOKEN_ARROW: return "VSS_TOKEN_ARROW";
+        case VSS_TOKEN_LEFT_BRACE: return "VSS_TOKEN_LEFT_BRACE";
+        case VSS_TOKEN_RIGHT_BRACE: return "VSS_TOKEN_RIGHT_BRACE";
         default: return "VSS_TOKEN_UNKNOWN";
     }
 }

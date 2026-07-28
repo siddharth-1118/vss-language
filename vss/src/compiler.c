@@ -4,6 +4,10 @@
 #include "compiler.h"
 #include "chunk.h"
 
+static void compile_expr(VSS_Expr *expr);
+static void compile_stmt(VSS_Stmt *stmt);
+static void compile_closure_expr(VSS_Expr *expr);
+
 // Scope & Local tracking
 typedef struct {
     char *name;
@@ -395,6 +399,32 @@ static void compile_expr(VSS_Expr *expr) {
             emit_bytes(VSS_OP_CALL, (uint8_t)expr->as.call.count, expr->line);
             break;
         }
+        case VSS_EXPR_STRUCT_LITERAL: {
+            int name_const = make_constant(vss_value_new_string(expr->as.struct_literal.name), expr->line);
+            emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)name_const, expr->line);
+            emit_bytes(VSS_OP_CALL, 0, expr->line);
+            
+            begin_scope();
+            add_local("$struct_temp", false, expr->line);
+            int temp_slot = resolve_local(current_compiler, "$struct_temp");
+            
+            for (size_t i = 0; i < expr->as.struct_literal.count; i++) {
+                emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)temp_slot, expr->line);
+                int field_const = make_constant(vss_value_new_string(expr->as.struct_literal.keys[i]), expr->line);
+                emit_bytes(VSS_OP_CONSTANT, (uint8_t)field_const, expr->line);
+                compile_expr(expr->as.struct_literal.values[i]);
+                emit_byte(VSS_OP_SET_FIELD, expr->line);
+            }
+            
+            current_compiler->scope_depth--;
+            free(current_compiler->locals[current_compiler->local_count - 1].name);
+            current_compiler->local_count--;
+            break;
+        }
+        case VSS_EXPR_CLOSURE: {
+            compile_closure_expr(expr);
+            break;
+        }
     }
 }
 
@@ -404,6 +434,76 @@ static void compile_block(VSS_Block block, bool new_scope, int line) {
         compile_stmt(block.statements[i]);
     }
     if (new_scope) end_scope(line);
+}
+
+static void compile_coroutine_task(VSS_Stmt *stmt) {
+    Compiler body_compiler;
+    compiler_init(&body_compiler, "<coroutine_body>", TYPE_TASK);
+    body_compiler.function->param_count = stmt->as.task.param_count;
+    
+    begin_scope();
+    for (size_t i = 0; i < stmt->as.task.param_count; i++) {
+        add_local(stmt->as.task.params[i], false, stmt->line);
+    }
+    
+    compile_block(stmt->as.task.body, false, stmt->line);
+    
+    emit_return(stmt->line);
+    VSS_ObjFunction *compiled_body = compiler_end();
+    
+    Compiler outer_compiler;
+    compiler_init(&outer_compiler, stmt->as.task.name, TYPE_TASK);
+    outer_compiler.function->param_count = stmt->as.task.param_count;
+    
+    begin_scope();
+    for (size_t i = 0; i < stmt->as.task.param_count; i++) {
+        add_local(stmt->as.task.params[i], false, stmt->line);
+    }
+    
+    // 1. Push Generator class
+    int gen_class_const = make_constant(vss_value_new_string("Generator"), stmt->line);
+    emit_byte(VSS_OP_GET_GLOBAL, stmt->line);
+    emit_byte((uint8_t)gen_class_const, stmt->line);
+    
+    // 2. Push __generator_create
+    int gen_create_const = make_constant(vss_value_new_string("__generator_create"), stmt->line);
+    emit_byte(VSS_OP_GET_GLOBAL, stmt->line);
+    emit_byte((uint8_t)gen_create_const, stmt->line);
+    
+    // 3. Push body_closure
+    int body_const = make_constant(vss_value_new_function(compiled_body), stmt->line);
+    emit_byte(VSS_OP_CLOSURE, stmt->line);
+    emit_byte((uint8_t)body_const, stmt->line);
+    for (int i = 0; i < compiled_body->upvalue_count; i++) {
+        emit_byte(body_compiler.upvalues[i].is_local ? 1 : 0, stmt->line);
+        emit_byte((uint8_t)body_compiler.upvalues[i].index, stmt->line);
+    }
+    vss_function_release(compiled_body);
+    
+    // 4. Push arguments
+    for (size_t i = 0; i < stmt->as.task.param_count; i++) {
+        int slot = resolve_local(&outer_compiler, stmt->as.task.params[i]);
+        emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)slot, stmt->line);
+    }
+    
+    // 5. Call __generator_create
+    emit_bytes(VSS_OP_CALL, (uint8_t)(stmt->as.task.param_count + 1), stmt->line);
+    
+    // 6. Call Generator
+    emit_bytes(VSS_OP_CALL, 1, stmt->line);
+    
+    // 7. Return the generator instance
+    emit_byte(VSS_OP_RETURN, stmt->line);
+    
+    VSS_ObjFunction *compiled_outer = compiler_end();
+    int outer_const = make_constant(vss_value_new_function(compiled_outer), stmt->line);
+    emit_byte(VSS_OP_CLOSURE, stmt->line);
+    emit_byte((uint8_t)outer_const, stmt->line);
+    for (int i = 0; i < compiled_outer->upvalue_count; i++) {
+        emit_byte(outer_compiler.upvalues[i].is_local ? 1 : 0, stmt->line);
+        emit_byte((uint8_t)outer_compiler.upvalues[i].index, stmt->line);
+    }
+    vss_function_release(compiled_outer);
 }
 
 static void compile_task_closure(VSS_Stmt *stmt) {
@@ -433,6 +533,33 @@ static void compile_task_closure(VSS_Stmt *stmt) {
     for (int i = 0; i < compiled_func->upvalue_count; i++) {
         emit_byte(task_compiler.upvalues[i].is_local ? 1 : 0, stmt->line);
         emit_byte((uint8_t)task_compiler.upvalues[i].index, stmt->line);
+    }
+}
+
+static void compile_closure_expr(VSS_Expr *expr) {
+    Compiler task_compiler;
+    compiler_init(&task_compiler, "<closure>", TYPE_TASK);
+    task_compiler.function->param_count = expr->as.closure.param_count;
+    
+    begin_scope();
+    for (size_t i = 0; i < expr->as.closure.param_count; i++) {
+        add_local(expr->as.closure.params[i], false, expr->line);
+    }
+    
+    compile_block(expr->as.closure.body, false, expr->line);
+    
+    emit_return(expr->line);
+    VSS_ObjFunction *compiled_func = compiler_end();
+    
+    int func_const = make_constant(vss_value_new_function(compiled_func), expr->line);
+    vss_function_release(compiled_func);
+    
+    emit_byte(VSS_OP_CLOSURE, expr->line);
+    emit_byte((uint8_t)func_const, expr->line);
+    
+    for (int i = 0; i < compiled_func->upvalue_count; i++) {
+        emit_byte(task_compiler.upvalues[i].is_local ? 1 : 0, expr->line);
+        emit_byte((uint8_t)task_compiler.upvalues[i].index, expr->line);
     }
 }
 
@@ -477,6 +604,11 @@ static void compile_stmt(VSS_Stmt *stmt) {
         case VSS_STMT_SEND: {
             compile_expr(stmt->as.send.expression);
             emit_byte(VSS_OP_RETURN, stmt->line);
+            break;
+        }
+        case VSS_STMT_YIELD: {
+            compile_expr(stmt->as.yield_stmt.expression);
+            emit_byte(VSS_OP_YIELD, stmt->line);
             break;
         }
         case VSS_STMT_WHEN: {
@@ -825,7 +957,11 @@ static void compile_stmt(VSS_Stmt *stmt) {
             break;
         }
         case VSS_STMT_TASK: {
-            compile_task_closure(stmt);
+            if (stmt->as.task.is_coroutine) {
+                compile_coroutine_task(stmt);
+            } else {
+                compile_task_closure(stmt);
+            }
             if (current_compiler->scope_depth == 0) {
                 int name_const = make_constant(vss_value_new_string(stmt->as.task.name), stmt->line);
                 emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
@@ -861,9 +997,14 @@ static void compile_stmt(VSS_Stmt *stmt) {
             
             int *end_jumps = malloc(sizeof(int) * stmt->as.choose.case_count);
             for (size_t i = 0; i < stmt->as.choose.case_count; i++) {
-                emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)target_slot, stmt->line);
-                compile_expr(stmt->as.choose.cases[i].expr);
-                emit_byte(VSS_OP_SAME_AS, stmt->line);
+                VSS_Expr *case_expr = stmt->as.choose.cases[i].expr;
+                if (case_expr->kind == VSS_EXPR_NAME && strcmp(case_expr->as.name, "_") == 0) {
+                    emit_byte(VSS_OP_TRUE, stmt->line);
+                } else {
+                    emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)target_slot, stmt->line);
+                    compile_expr(case_expr);
+                    emit_byte(VSS_OP_SAME_AS, stmt->line);
+                }
                 
                 int false_jump = emit_jump(VSS_OP_JUMP_IF_FALSE, stmt->line);
                 emit_byte(VSS_OP_POP, stmt->line);
@@ -964,6 +1105,23 @@ static void compile_stmt(VSS_Stmt *stmt) {
             } else {
                 add_local(stmt->as.object_decl.name, false, stmt->line);
             }
+            break;
+        }
+        case VSS_STMT_SHAPE: {
+            emit_byte(VSS_OP_EMPTY, stmt->line);
+            int name_const = make_constant(vss_value_new_string(stmt->as.shape_decl.name), stmt->line);
+            emit_bytes(VSS_OP_CLASS, (uint8_t)name_const, stmt->line);
+            
+            if (current_compiler->scope_depth == 0) {
+                emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
+                emit_byte((uint8_t)name_const, stmt->line);
+                emit_byte(0, stmt->line);
+            } else {
+                add_local(stmt->as.shape_decl.name, false, stmt->line);
+            }
+            break;
+        }
+        case VSS_STMT_FIELD: {
             break;
         }
         default: break;

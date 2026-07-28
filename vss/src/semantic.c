@@ -204,7 +204,7 @@ static const char *infer_type(VSS_Expr *expr, SemScope *scope) {
         }
         case VSS_EXPR_UNARY: {
             VSS_TokenType op = expr->as.unary.op;
-            if (op == VSS_TOKEN_MINUS) {
+            if (op == VSS_TOKEN_MINUS || op == VSS_TOKEN_AWAIT) {
                 return infer_type(expr->as.unary.operand, scope);
             }
             if (op == VSS_TOKEN_NOT) {
@@ -224,6 +224,12 @@ static const char *infer_type(VSS_Expr *expr, SemScope *scope) {
                 SemEnum *enm = find_enum(expr->as.field_access.map->as.name);
                 if (enm) return enm->name;
             }
+            return "any";
+        }
+        case VSS_EXPR_STRUCT_LITERAL: {
+            return expr->as.struct_literal.name;
+        }
+        case VSS_EXPR_CLOSURE: {
             return "any";
         }
         default: return "any";
@@ -438,6 +444,37 @@ static bool check_stmt(VSS_Stmt *stmt, SemScope *scope) {
             scope_free(&sub_rescue);
             break;
         }
+        case VSS_STMT_SHAPE: {
+            SemScope sub;
+            sub.vars = NULL;
+            sub.parent = scope;
+            for (size_t j = 0; j < stmt->as.shape_decl.member_count; j++) {
+                if (!check_stmt(stmt->as.shape_decl.members[j], &sub)) {
+                    scope_free(&sub);
+                    return false;
+                }
+            }
+            scope_free(&sub);
+            break;
+        }
+        case VSS_STMT_FIELD: {
+            if (stmt->as.field_decl.default_value) {
+                VSS_Stmt *temp = vss_stmt_new_expr(stmt->as.field_decl.default_value, stmt->line, stmt->column);
+                bool ok = check_stmt(temp, scope);
+                free(temp);
+                if (!ok) return false;
+            }
+            break;
+        }
+        case VSS_STMT_YIELD: {
+            if (stmt->as.yield_stmt.expression) {
+                VSS_Stmt *temp = vss_stmt_new_expr(stmt->as.yield_stmt.expression, stmt->line, stmt->column);
+                bool ok = check_stmt(temp, scope);
+                free(temp);
+                if (!ok) return false;
+            }
+            break;
+        }
         default:
             break;
     }
@@ -448,6 +485,9 @@ static VSS_Stmt *find_stmt_for_class(VSS_Block program, const char *name) {
     for (size_t i = 0; i < program.count; i++) {
         VSS_Stmt *s = program.statements[i];
         if (s->kind == VSS_STMT_OBJECT && strcmp(s->as.object_decl.name, name) == 0) {
+            return s;
+        }
+        if (s->kind == VSS_STMT_SHAPE && strcmp(s->as.shape_decl.name, name) == 0) {
             return s;
         }
     }
@@ -579,6 +619,29 @@ bool vss_semantic_analyze(VSS_Block program) {
                     for (size_t k = 0; k < m->as.task.param_count; k++) {
                         sig->params[k] = safe_strdup(m->as.task.params[k]);
                     }
+                }
+            }
+        } else if (stmt->kind == VSS_STMT_SHAPE) {
+            SemClass *cls = find_class(stmt->as.shape_decl.name);
+            if (cls) {
+                sem_error(stmt->line, stmt->column, "Duplicate shape/class declaration '%s'.", stmt->as.shape_decl.name);
+                return false;
+            }
+            classes = realloc(classes, sizeof(SemClass) * (class_count + 1));
+            SemClass *curr = &classes[class_count++];
+            curr->name = safe_strdup(stmt->as.shape_decl.name);
+            curr->parent_name = NULL;
+            curr->interfaces = NULL;
+            curr->interface_count = 0;
+            curr->fields = NULL;
+            curr->field_count = 0;
+            curr->methods = NULL;
+            curr->method_count = 0;
+            for (size_t j = 0; j < stmt->as.shape_decl.member_count; j++) {
+                VSS_Stmt *m = stmt->as.shape_decl.members[j];
+                if (m->kind == VSS_STMT_FIELD) {
+                    curr->fields = realloc(curr->fields, sizeof(char*) * (curr->field_count + 1));
+                    curr->fields[curr->field_count++] = safe_strdup(m->as.field_decl.name);
                 }
             }
         }

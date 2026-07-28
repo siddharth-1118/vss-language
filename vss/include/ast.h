@@ -4,6 +4,14 @@
 #include "common.h"
 #include "token.h"
 
+typedef struct VSS_Expr VSS_Expr;
+typedef struct VSS_Stmt VSS_Stmt;
+
+typedef struct {
+    VSS_Stmt **statements;
+    size_t count;
+} VSS_Block;
+
 typedef enum {
     VSS_EXPR_NUMBER,
     VSS_EXPR_STRING,
@@ -18,10 +26,12 @@ typedef enum {
     VSS_EXPR_FIELD_ACCESS,
     VSS_EXPR_CALL,
     VSS_EXPR_MINE,
-    VSS_EXPR_PARENT
+    VSS_EXPR_PARENT,
+    VSS_EXPR_STRUCT_LITERAL,
+    VSS_EXPR_CLOSURE
 } VSS_ExprKind;
 
-typedef struct VSS_Expr VSS_Expr;
+
 
 struct VSS_Expr {
     VSS_ExprKind kind;
@@ -63,6 +73,17 @@ struct VSS_Expr {
             VSS_Expr **args;
             size_t count;
         } call;
+        struct {
+            char *name;
+            char **keys;
+            VSS_Expr **values;
+            size_t count;
+        } struct_literal;
+        struct {
+            char **params;
+            size_t param_count;
+            VSS_Block body;
+        } closure;
     } as;
 };
 
@@ -90,15 +111,13 @@ typedef enum {
     VSS_STMT_EXPR,
     VSS_STMT_OBJECT,
     VSS_STMT_INTERFACE,
-    VSS_STMT_CHOICES
+    VSS_STMT_CHOICES,
+    VSS_STMT_SHAPE,
+    VSS_STMT_FIELD,
+    VSS_STMT_YIELD
 } VSS_StmtKind;
 
-typedef struct VSS_Stmt VSS_Stmt;
 
-typedef struct {
-    VSS_Stmt **statements;
-    size_t count;
-} VSS_Block;
 
 typedef struct {
     VSS_Expr *condition;
@@ -161,6 +180,8 @@ struct VSS_Stmt {
             char **params;
             size_t param_count;
             VSS_Block body;
+            bool is_coroutine;
+            bool is_async;
         } task;
         struct {
             VSS_Expr *expression;
@@ -209,6 +230,19 @@ struct VSS_Stmt {
             char **members;
             size_t member_count;
         } choices_decl;
+        struct {
+            char *name;
+            struct VSS_Stmt **members;
+            size_t member_count;
+        } shape_decl;
+        struct {
+            char *name;
+            char *type_name;
+            VSS_Expr *default_value;
+        } field_decl;
+        struct {
+            VSS_Expr *expression;
+        } yield_stmt;
     } as;
 };
 
@@ -227,6 +261,8 @@ VSS_Expr *vss_expr_new_field_access(VSS_Expr *map, VSS_Expr *field, int line, in
 VSS_Expr *vss_expr_new_call(VSS_Expr *callee, VSS_Expr **args, size_t count, int line, int column);
 VSS_Expr *vss_expr_new_mine(int line, int column);
 VSS_Expr *vss_expr_new_parent(int line, int column);
+VSS_Expr *vss_expr_new_struct_literal(const char *name, char **keys, VSS_Expr **values, size_t count, int line, int column);
+VSS_Expr *vss_expr_new_closure(char **params, size_t param_count, VSS_Block body, int line, int column);
 
 void vss_expr_free(VSS_Expr *expr);
 
@@ -255,6 +291,9 @@ VSS_Stmt *vss_stmt_new_expr(VSS_Expr *expression, int line, int column);
 VSS_Stmt *vss_stmt_new_object(const char *name, const char *parent_name, char **interfaces, size_t interface_count, VSS_Stmt **members, size_t member_count, int line, int column);
 VSS_Stmt *vss_stmt_new_interface(const char *name, VSS_Stmt **task_decls, size_t task_count, int line, int column);
 VSS_Stmt *vss_stmt_new_choices(const char *name, char **members, size_t member_count, int line, int column);
+VSS_Stmt *vss_stmt_new_shape(const char *name, VSS_Stmt **members, size_t member_count, int line, int column);
+VSS_Stmt *vss_stmt_new_field(const char *name, const char *type_name, VSS_Expr *default_value, int line, int column);
+VSS_Stmt *vss_stmt_new_yield(VSS_Expr *expression, int line, int column);
 
 void vss_stmt_free(VSS_Stmt *stmt);
 void vss_block_free(VSS_Block block);

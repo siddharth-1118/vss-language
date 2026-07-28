@@ -2,7 +2,7 @@
   "name": "vss-language",
   "displayName": "VSS Language",
   "description": "Syntax highlighting, diagnostics, and language support for the VSS (Very Simple Syntax) programming language",
-  "version": "2.1.0",
+  "version": "2.2.2",
   "publisher": "saisiddharth",
   "engines": {
     "vscode": "^1.60.0"

@@ -1,0 +1,13 @@
+choices Status
+    Active
+    Pending
+    Inactive
+finish
+
+make s becomes Status.Pending
+
+match s
+    case Status.Active  -> say "online"
+    case Status.Pending -> say "waiting"
+    case _              -> say "offline"
+finish

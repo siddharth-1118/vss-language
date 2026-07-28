@@ -1,0 +1,93 @@
+note Shapes / Structs test
+shape Point
+    field x: number
+    field y: number
+finish
+
+make p becomes Point { x: 10, y: 20 }
+say "Point coordinates:"
+say p.x
+say p.y
+
+note Closures / Lambdas test
+make sum becomes { a, b -> a + b }
+say "Closure addition:"
+say sum(3, 4)
+
+make multiply becomes { a, b ->
+    send a * b
+}
+say "Closure multiplication:"
+say multiply(5, 6)
+
+note Standard Library Map / Filter / Reduce test
+make nums becomes [1, 2, 3, 4, 5]
+
+make doubled becomes map_list(nums, { x -> x * 2 })
+say "Map doubled nums:"
+repeat each d in doubled
+    say d
+finish
+
+make evens becomes filter(nums, { x ->
+    send (x % 2) same_as 0
+})
+say "Filter even nums:"
+repeat each e in evens
+    say e
+finish
+
+make sum_all becomes reduce(nums, 0, { acc, x -> acc + x })
+say "Reduce sum:"
+say sum_all
+
+note Choices & Match test
+choices Color
+    Red
+    Green
+    Blue
+finish
+
+make c becomes Color.Green
+say "Matching color:"
+match c
+    case Color.Red -> say "red"
+    case Color.Green -> say "green"
+    case _ -> say "other"
+finish
+
+note Blueprints test
+blueprint Drawable
+    task draw needs
+finish
+
+object Circle implements Drawable
+    field radius
+    task create needs radius
+        mine.radius becomes radius
+    finish
+    task draw needs
+        say "Drawing circle with radius:"
+        say mine.radius
+    finish
+finish
+
+make circ becomes Circle(5)
+circ.draw()
+
+note Coroutines & Generators test
+coroutine task counter needs start: number
+    make i becomes start
+    during yes
+        yield i
+        i becomes i + 1
+    finish
+finish
+
+say "About to call counter..."
+make gen becomes counter(10)
+say "Counter returned, about to call next..."
+say gen.next()
+say "Called next once..."
+say gen.next()
+say gen.next()

@@ -50,7 +50,9 @@ static void add_cached_module(const char *name, VSS_Value exports, bool is_loadi
     module_cache_count++;
 }
 
-static VSS_VM *current_vm_instance = NULL;
+VSS_VM *current_vm_instance = NULL;
+VSS_VM *vss_resume_vm = NULL;
+VSS_VM *vss_yield_target = NULL;
 
 static void runtime_error(const char *format, ...);
 
@@ -64,6 +66,7 @@ void vss_vm_init(VSS_VM *vm, VSS_Env *global_env) {
         vss_env_retain(global_env);
     }
     vm->prev_vm_instance = current_vm_instance;
+    vm->yielded = false;
     current_vm_instance = vm;
 }
 
@@ -195,16 +198,28 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
     if (current_vm_instance == NULL) {
         clear_module_cache();
     }
-    VSS_VM vm;
-    vss_vm_init(&vm, global_env);
+    VSS_VM *vm_ptr;
+    bool is_resumed = false;
+    VSS_CallFrame *frame = NULL;
+    if (vss_resume_vm != NULL) {
+        vm_ptr = vss_resume_vm;
+        vss_resume_vm = NULL;
+        is_resumed = true;
+        current_vm_instance = vm_ptr;
+    } else {
+        vm_ptr = malloc(sizeof(VSS_VM));
+        is_resumed = false;
+        vss_vm_init(vm_ptr, global_env);
+        VSS_ObjClosure *closure = vss_closure_new(func);
+        push(vss_value_new_closure(closure));
+        
+        frame = &vm_ptr->frames[vm_ptr->frame_count++];
+        frame->closure = closure;
+        frame->ip = func->chunk.code;
+        frame->slots = vm_ptr->stack;
+    }
     
-    VSS_ObjClosure *closure = vss_closure_new(func);
-    push(vss_value_new_closure(closure));
-    
-    VSS_CallFrame *frame = &vm.frames[vm.frame_count++];
-    frame->closure = closure;
-    frame->ip = func->chunk.code;
-    frame->slots = vm.stack;
+#define vm (*vm_ptr)
     
     if (setjmp(vm.jump_buffer) != 0) {
         // Trap triggered, frame IP is updated.
@@ -544,6 +559,7 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     bool err = false;
                     char *err_msg = NULL;
                     VSS_Value ret = native(arg_count, args, &err, &err_msg);
+                    current_vm_instance = vm_ptr;
                     
                     if (err) {
                         runtime_error("%s", err_msg);
@@ -596,9 +612,18 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 if (vm.frame_count == 0) {
                     vss_value_release(pop()); // pop closure
                     push(ret_val);
+                    if (is_resumed) {
+                        vm.yielded = false;
+                        *vss_yield_target = vm;
+                        current_vm_instance = vm.prev_vm_instance;
+                        return true;
+                    }
                     vss_vm_free(&vm);
                     if (vm.prev_vm_instance == NULL) {
                         clear_module_cache();
+                    }
+                    if (!is_resumed) {
+                        free(vm_ptr);
                     }
                     return true;
                 }
@@ -611,6 +636,37 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 push(ret_val);
                 frame = &vm.frames[vm.frame_count - 1];
                 break;
+            }
+            case VSS_OP_YIELD: {
+                VSS_Value yielded_val = pop();
+                if (vss_yield_target != NULL) {
+                    vm.yielded = true;
+                    push(yielded_val);
+                    *vss_yield_target = vm;
+                    current_vm_instance = vm.prev_vm_instance;
+                    return true;
+                } else {
+                    close_upvalues(&vm, frame->slots);
+                    vm.frame_count--;
+                    if (vm.frame_count == 0) {
+                        vss_value_release(pop());
+                        push(yielded_val);
+                        vss_vm_free(&vm);
+                        if (vm.prev_vm_instance == NULL) {
+                            clear_module_cache();
+                        }
+                        if (!is_resumed) {
+                            free(vm_ptr);
+                        }
+                        return true;
+                    }
+                    while (vm.stack_top > frame->slots) {
+                        vss_value_release(pop());
+                    }
+                    push(yielded_val);
+                    frame = &vm.frames[vm.frame_count - 1];
+                    break;
+                }
             }
             case VSS_OP_BUILD_LIST: {
                 uint8_t count = *frame->ip++;
@@ -1166,7 +1222,11 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 break;
             default:
                 runtime_error("Unknown VSS_VM instruction %d.", instruction);
+                if (!is_resumed) {
+                    free(vm_ptr);
+                }
                 return false;
         }
     }
+#undef vm
 }

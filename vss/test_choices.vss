@@ -1,0 +1,8 @@
+choices Color
+    Red
+    Green
+    Blue
+finish
+
+make c becomes Color.Red
+say c

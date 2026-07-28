@@ -422,6 +422,9 @@ static VSS_FlowResult eval_expr(VSS_Expr *expr, VSS_Env *env, VSS_Value *out_val
             *out_val = val;
             return flow_normal();
         }
+        case VSS_EXPR_STRUCT_LITERAL:
+        case VSS_EXPR_CLOSURE:
+            return flow_error(expr->line, expr->column, "Not implemented in tree-walk interpreter.");
     }
 
     return flow_error(expr->line, expr->column, "Unknown expression kind.");
@@ -880,6 +883,9 @@ static VSS_FlowResult exec_stmt(VSS_Stmt *stmt, VSS_Env *env) {
         case VSS_STMT_OBJECT:
         case VSS_STMT_INTERFACE:
         case VSS_STMT_CHOICES:
+        case VSS_STMT_SHAPE:
+        case VSS_STMT_FIELD:
+        case VSS_STMT_YIELD:
             return flow_normal();
     }
 

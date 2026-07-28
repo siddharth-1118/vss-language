@@ -185,6 +185,8 @@ int vss_disassemble_instruction(VSS_Chunk *chunk, int offset) {
         }
         case VSS_OP_RETURN:
             return simple_instruction("VSS_OP_RETURN", offset);
+        case VSS_OP_YIELD:
+            return simple_instruction("VSS_OP_YIELD", offset);
         case VSS_OP_BUILD_LIST:
             return byte_instruction("VSS_OP_BUILD_LIST", chunk, offset);
         case VSS_OP_BUILD_MAP:

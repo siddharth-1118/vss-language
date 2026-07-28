@@ -35,6 +35,7 @@ typedef struct VSS_VM {
     VSS_Upvalue *open_upvalues;
     VSS_Env *globals;
     jmp_buf jump_buffer;
+    bool yielded;
     struct VSS_VM *prev_vm_instance;
 } VSS_VM;
 

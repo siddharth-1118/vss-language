@@ -132,7 +132,14 @@ static VSS_TokenType keyword_type(const char *start, size_t length) {
         {"implements", VSS_TOKEN_IMPLEMENTS},
         {"choices", VSS_TOKEN_CHOICES},
         {"interface", VSS_TOKEN_INTERFACE},
-        {"parent", VSS_TOKEN_PARENT}
+        {"parent", VSS_TOKEN_PARENT},
+        {"shape", VSS_TOKEN_SHAPE},
+        {"blueprint", VSS_TOKEN_BLUEPRINT},
+        {"match", VSS_TOKEN_MATCH},
+        {"async", VSS_TOKEN_ASYNC},
+        {"await", VSS_TOKEN_AWAIT},
+        {"yield", VSS_TOKEN_YIELD},
+        {"coroutine", VSS_TOKEN_COROUTINE}
     };
 
     size_t count = sizeof(keywords) / sizeof(keywords[0]);
@@ -233,12 +240,19 @@ VSS_Token vss_lexer_next(VSS_Lexer *lexer) {
     switch (c) {
         case '"': return string(lexer);
         case '+': return make_token(lexer, VSS_TOKEN_PLUS);
-        case '-': return make_token(lexer, VSS_TOKEN_MINUS);
+        case '-':
+            if (peek_char(lexer) == '>') {
+                advance_char(lexer);
+                return make_token(lexer, VSS_TOKEN_ARROW);
+            }
+            return make_token(lexer, VSS_TOKEN_MINUS);
         case '*': return make_token(lexer, VSS_TOKEN_STAR);
         case '/': return make_token(lexer, VSS_TOKEN_SLASH);
         case '%': return make_token(lexer, VSS_TOKEN_PERCENT);
         case '[': return make_token(lexer, VSS_TOKEN_LEFT_BRACKET);
         case ']': return make_token(lexer, VSS_TOKEN_RIGHT_BRACKET);
+        case '{': return make_token(lexer, VSS_TOKEN_LEFT_BRACE);
+        case '}': return make_token(lexer, VSS_TOKEN_RIGHT_BRACE);
         case ',': return make_token(lexer, VSS_TOKEN_COMMA);
         case ':': return make_token(lexer, VSS_TOKEN_COLON);
         case '.': return make_token(lexer, VSS_TOKEN_DOT);
