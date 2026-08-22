@@ -684,6 +684,38 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 push(list_val);
                 break;
             }
+            case VSS_OP_BUILD_SET: {
+                uint8_t count = *frame->ip++;
+                VSS_Value list_val = vss_value_new_list();
+                VSS_ValList *l = list_val.as.list;
+                
+                // Pop items in reverse order to a temp array
+                VSS_Value *temp_items = malloc(sizeof(VSS_Value) * count);
+                for (int i = (int)count - 1; i >= 0; i--) {
+                    temp_items[i] = pop();
+                }
+                
+                // Add to list only if not already present
+                l->items = malloc(sizeof(VSS_Value) * count);
+                for (int i = 0; i < (int)count; i++) {
+                    VSS_Value item = temp_items[i];
+                    bool duplicate = false;
+                    for (size_t j = 0; j < l->count; j++) {
+                        if (vss_value_same_as(l->items[j], item)) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    if (!duplicate) {
+                        l->items[l->count++] = item;
+                    } else {
+                        vss_value_release(item);
+                    }
+                }
+                free(temp_items);
+                push(list_val);
+                break;
+            }
             case VSS_OP_BUILD_MAP: {
                 uint8_t count = *frame->ip++;
                 VSS_Value map_val = vss_value_new_map();
@@ -1117,6 +1149,35 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                 uint8_t name_const = *frame->ip++;
                 VSS_Value name_val = frame->closure->function->chunk.constants[name_const];
                 const char *module_name = name_val.as.string->chars;
+
+                if (strcmp(module_name, "math") == 0 || strcmp(module_name, "string") == 0 ||
+                    strcmp(module_name, "collections") == 0 || strcmp(module_name, "filesystem") == 0 ||
+                    strcmp(module_name, "json") == 0 || strcmp(module_name, "xml") == 0 ||
+                    strcmp(module_name, "yaml") == 0 || strcmp(module_name, "csv") == 0 ||
+                    strcmp(module_name, "http") == 0 || strcmp(module_name, "database") == 0 ||
+                    strcmp(module_name, "crypto") == 0 || strcmp(module_name, "gui") == 0 ||
+                    strcmp(module_name, "ai") == 0 || strcmp(module_name, "testing") == 0 ||
+                    strcmp(module_name, "web") == 0) {
+                    /* Build a map from all globals prefixed with "<module_name>_" */
+                    VSS_Value mod_map = vss_value_new_map();
+                    VSS_ValMap *mm = mod_map.as.map;
+                    size_t prefix_len = strlen(module_name);
+                    for (size_t gi = 0; gi < vm.globals->count; gi++) {
+                        const char *gname = vm.globals->items[gi].name;
+                        /* Match "<module_name>_<something>" */
+                        if (strncmp(gname, module_name, prefix_len) == 0 && gname[prefix_len] == '_') {
+                            const char *short_key = gname + prefix_len + 1;
+                            mm->entries = realloc(mm->entries, sizeof(VSS_ValMapEntry) * (mm->count + 1));
+                            mm->entries[mm->count].key = safe_strdup(short_key);
+                            mm->entries[mm->count].value = vm.globals->items[gi].value;
+                            vss_value_retain(vm.globals->items[gi].value);
+                            mm->count++;
+                        }
+                    }
+                    vss_env_define(vm.globals, module_name, mod_map);
+                    vss_value_release(mod_map);
+                    break;
+                }
                 
                 CachedModule *cached = get_cached_module(module_name);
                 VSS_Value exports;
