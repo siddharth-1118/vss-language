@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include "compiler.h"
+
+static char declared_namespaces[64][128];
+static int declared_namespace_count = 0;
+static char current_namespace[128] = "";
+
+static bool is_known_namespace(const char *name) {
+    for (int i = 0; i < declared_namespace_count; i++) {
+        if (strcmp(declared_namespaces[i], name) == 0) return true;
+    }
+    return false;
+}
+
 #include "chunk.h"
 
 static void compile_expr(VSS_Expr *expr);
@@ -268,13 +280,18 @@ static void compile_expr(VSS_Expr *expr) {
             emit_byte(VSS_OP_EMPTY, expr->line);
             break;
         case VSS_EXPR_NAME: {
-            int arg = resolve_local(current_compiler, expr->as.name);
+            char resolved_name[256];
+            strcpy(resolved_name, expr->as.name);
+            if (current_namespace[0] != '\0' && strncmp(expr->as.name, "__", 2) != 0 && resolve_local(current_compiler, expr->as.name) == -1 && resolve_upvalue(current_compiler, expr->as.name) == -1) {
+                snprintf(resolved_name, sizeof(resolved_name), "%s_%s", current_namespace, expr->as.name);
+            }
+            int arg = resolve_local(current_compiler, resolved_name);
             if (arg != -1) {
                 emit_bytes(VSS_OP_GET_LOCAL, (uint8_t)arg, expr->line);
-            } else if ((arg = resolve_upvalue(current_compiler, expr->as.name)) != -1) {
+            } else if ((arg = resolve_upvalue(current_compiler, resolved_name)) != -1) {
                 emit_bytes(VSS_OP_GET_UPVALUE, (uint8_t)arg, expr->line);
             } else {
-                int name_const = make_constant(vss_value_new_string(expr->as.name), expr->line);
+                int name_const = make_constant(vss_value_new_string(resolved_name), expr->line);
                 emit_bytes(VSS_OP_GET_GLOBAL, (uint8_t)name_const, expr->line);
             }
             break;
@@ -326,6 +343,15 @@ static void compile_expr(VSS_Expr *expr) {
             }
             break;
         }
+
+        case VSS_EXPR_SET: {
+            for (size_t i = 0; i < expr->as.list.count; i++) {
+                compile_expr(expr->as.list.elements[i]);
+            }
+            emit_bytes(VSS_OP_BUILD_SET, (uint8_t)expr->as.list.count, expr->line);
+            break;
+        }
+
         case VSS_EXPR_LIST: {
             for (size_t i = 0; i < expr->as.list.count; i++) {
                 compile_expr(expr->as.list.elements[i]);
@@ -573,7 +599,13 @@ static void compile_stmt(VSS_Stmt *stmt) {
             compile_expr(stmt->as.make.initializer);
             
             if (current_compiler->scope_depth == 0) {
-                int name_const = make_constant(vss_value_new_string(stmt->as.make.name), stmt->line);
+                char resolved_name[256];
+            if (current_namespace[0] != '\0') {
+                snprintf(resolved_name, sizeof(resolved_name), "%s_%s", current_namespace, stmt->as.make.name);
+            } else {
+                strcpy(resolved_name, stmt->as.make.name);
+            }
+            int name_const = make_constant(vss_value_new_string(resolved_name), stmt->line);
                 emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
                 emit_byte((uint8_t)name_const, stmt->line);
                 emit_byte(is_const ? 1 : 0, stmt->line);
@@ -963,7 +995,13 @@ static void compile_stmt(VSS_Stmt *stmt) {
                 compile_task_closure(stmt);
             }
             if (current_compiler->scope_depth == 0) {
-                int name_const = make_constant(vss_value_new_string(stmt->as.task.name), stmt->line);
+                char resolved_name[256];
+            if (current_namespace[0] != '\0') {
+                snprintf(resolved_name, sizeof(resolved_name), "%s_%s", current_namespace, stmt->as.task.name);
+            } else {
+                strcpy(resolved_name, stmt->as.task.name);
+            }
+            int name_const = make_constant(vss_value_new_string(resolved_name), stmt->line);
                 emit_byte(VSS_OP_DEFINE_GLOBAL, stmt->line);
                 emit_byte((uint8_t)name_const, stmt->line);
                 emit_byte(0, stmt->line);
@@ -1105,6 +1143,17 @@ static void compile_stmt(VSS_Stmt *stmt) {
             } else {
                 add_local(stmt->as.object_decl.name, false, stmt->line);
             }
+            break;
+        }
+        case VSS_STMT_NAMESPACE: {
+            strcpy(declared_namespaces[declared_namespace_count++], stmt->as.namespace_decl.name);
+            char prev_ns[128];
+            strcpy(prev_ns, current_namespace);
+            strcpy(current_namespace, stmt->as.namespace_decl.name);
+            for (size_t i = 0; i < stmt->as.namespace_decl.body.count; i++) {
+                compile_stmt(stmt->as.namespace_decl.body.statements[i]);
+            }
+            strcpy(current_namespace, prev_ns);
             break;
         }
         case VSS_STMT_SHAPE: {
