@@ -1,0 +1,21 @@
+﻿note VSS Native Web Server Example
+note Run with: vss web_server.vss
+
+grab web
+
+note Register routes
+web.route("/", { req ->
+    send "<!DOCTYPE html><html><head><title>VSS Web</title><style>body{font-family:sans-serif;max-width:800px;margin:50px auto;background:#0f172a;color:#e2e8f0}h1{color:#38bdf8}a{color:#7dd3fc;margin-right:16px}</style></head><body><h1>Welcome to VSS!</h1><p>A website built with the VSS programming language.</p><a href='/about'>About</a><a href='/hello'>Hello</a></body></html>"
+})
+
+web.route("/hello", { req ->
+    send "<!DOCTYPE html><html><head><title>Hello - VSS Web</title><style>body{font-family:sans-serif;max-width:800px;margin:50px auto;background:#0f172a;color:#e2e8f0}h1{color:#4ade80}a{color:#7dd3fc}</style></head><body><h1>Hello from VSS!</h1><p>This page was served by a native HTTP server written in VSS.</p><a href='/'>Home</a></body></html>"
+})
+
+web.route("/about", { req ->
+    send "<!DOCTYPE html><html><head><title>About - VSS Web</title><style>body{font-family:sans-serif;max-width:800px;margin:50px auto;background:#0f172a;color:#e2e8f0}h1{color:#f472b6}a{color:#7dd3fc}</style></head><body><h1>About VSS</h1><p>VSS is a modern programming language with native web server support.</p><ul><li>Native HTTP routing</li><li>Simple syntax</li><li>Fast execution</li></ul><a href='/'>Home</a></body></html>"
+})
+
+note Start server
+say "VSS web server running at http://localhost:8080"
+web.serve(8080)
