@@ -1403,6 +1403,211 @@ static VSS_Value builtin_generator_next(size_t arg_count, VSS_Value *args, bool 
     
     return ret_val;
 }
+#define MAX_ROUTES 100
+typedef struct {
+    char *path;
+    VSS_ObjClosure *handler;
+} VSS_Route;
+
+static VSS_Route registered_routes[MAX_ROUTES];
+static int registered_route_count = 0;
+
+static VSS_Value vss_call_closure(VSS_ObjClosure *closure, int arg_count, VSS_Value *args) {
+    VSS_VM *gen_vm = malloc(sizeof(VSS_VM));
+    VSS_VM *calling_vm = current_vm_instance;
+    VSS_Env *globals = calling_vm ? calling_vm->globals : NULL;
+    vss_vm_init(gen_vm, globals);
+    gen_vm->prev_vm_instance = calling_vm;
+    
+    // push closure
+    gen_vm->stack[0] = vss_value_new_closure(closure);
+    vss_value_retain(gen_vm->stack[0]);
+    
+    // push args
+    for (int i = 0; i < arg_count; i++) {
+        gen_vm->stack[i + 1] = args[i];
+        vss_value_retain(args[i]);
+    }
+    gen_vm->stack_top = gen_vm->stack + arg_count + 1;
+    
+    VSS_CallFrame *frame = &gen_vm->frames[gen_vm->frame_count++];
+    frame->closure = closure;
+    frame->ip = closure->function->chunk.code;
+    frame->slots = gen_vm->stack;
+    
+    VSS_VM *prev_yield_target = vss_yield_target;
+    vss_resume_vm = gen_vm;
+    vss_yield_target = gen_vm;
+    current_vm_instance = gen_vm;
+    
+    vss_vm_run(NULL, NULL);
+    
+    vss_yield_target = prev_yield_target;
+    
+    VSS_Value ret_val = vss_value_new_empty();
+    if (gen_vm->stack_top > gen_vm->stack) {
+        ret_val = *(gen_vm->stack_top - 1);
+        vss_value_retain(ret_val);
+    }
+    
+    vss_vm_free(gen_vm);
+    free(gen_vm);
+    
+    current_vm_instance = calling_vm;
+    return ret_val;
+}
+
+static VSS_Value builtin_web_route(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    if (arg_count != 2 || args[0].type != VSS_VAL_STRING || args[1].type != VSS_VAL_CLOSURE) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("web.route expects a string path and a closure handler.");
+        return vss_value_new_empty();
+    }
+    
+    if (registered_route_count >= MAX_ROUTES) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("Maximum registered routes exceeded.");
+        return vss_value_new_empty();
+    }
+    
+    const char *path = args[0].as.string->chars;
+    VSS_ObjClosure *handler = args[1].as.closure;
+    
+    // Store it
+    registered_routes[registered_route_count].path = safe_strdup(path);
+    registered_routes[registered_route_count].handler = handler;
+    // Retain closure reference so it doesn't get garbage collected
+    vss_value_retain(vss_value_new_closure(handler));
+    registered_route_count++;
+    
+    return vss_value_new_empty();
+}
+
+static VSS_Value builtin_web_serve(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    if (arg_count != 1 || args[0].type != VSS_VAL_NUMBER) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("web.serve expects a port number.");
+        return vss_value_new_empty();
+    }
+    
+    int port = (int)args[0].as.number;
+    
+    if (!vss_network_init()) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("Failed to initialize network system.");
+        return vss_value_new_empty();
+    }
+
+    VSS_Socket server_fd = vss_socket_create();
+    if (server_fd == VSS_INVALID_SOCKET) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("Failed to create socket.");
+        vss_network_cleanup();
+        return vss_value_new_empty();
+    }
+    
+    if (!vss_socket_bind(server_fd, port)) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("Failed to bind socket.");
+        vss_socket_close(server_fd);
+        vss_network_cleanup();
+        return vss_value_new_empty();
+    }
+    
+    if (!vss_socket_listen(server_fd, 10)) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("Failed to listen on socket.");
+        vss_socket_close(server_fd);
+        vss_network_cleanup();
+        return vss_value_new_empty();
+    }
+    
+    printf("Starting VSS Web Server on port %d...\n", port);
+    
+    while (1) {
+        VSS_Socket client_fd = vss_socket_accept(server_fd);
+        if (client_fd == VSS_INVALID_SOCKET) continue;
+        
+        char buffer[2048];
+        int read_bytes = vss_socket_recv(client_fd, buffer, sizeof(buffer) - 1);
+        if (read_bytes <= 0) {
+            vss_socket_close(client_fd);
+            continue;
+        }
+        buffer[read_bytes] = '\0';
+        
+        char method[16], path[256];
+        if (sscanf(buffer, "%15s %255s", method, path) == 2) {
+            // Find handler for this path
+            VSS_ObjClosure *handler = NULL;
+            for (int i = 0; i < registered_route_count; i++) {
+                if (strcmp(registered_routes[i].path, path) == 0) {
+                    handler = registered_routes[i].handler;
+                    break;
+                }
+            }
+            
+            if (handler) {
+                size_t param_count = handler->function->param_count;
+                VSS_Value *h_args = NULL;
+                if (param_count > 0) {
+                    VSS_Value req_map = vss_value_new_map();
+                    VSS_ValMap *m = req_map.as.map;
+                    
+                    VSS_Value method_val = vss_value_new_string(method);
+                    VSS_Value path_val = vss_value_new_string(path);
+                    
+                    m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * 2);
+                    m->entries[0].key = safe_strdup("method");
+                    m->entries[0].value = method_val;
+                    vss_value_retain(method_val);
+                    m->entries[1].key = safe_strdup("path");
+                    m->entries[1].value = path_val;
+                    vss_value_retain(path_val);
+                    m->count = 2;
+                    
+                    h_args = malloc(sizeof(VSS_Value) * 1);
+                    h_args[0] = req_map;
+                    
+                    vss_value_release(method_val);
+                    vss_value_release(path_val);
+                }
+                
+                VSS_Value res_val = vss_call_closure(handler, (int)param_count, h_args);
+                
+                if (h_args) {
+                    vss_value_release(h_args[0]);
+                    free(h_args);
+                }
+                
+                char *res_str = NULL;
+                if (res_val.type == VSS_VAL_STRING) {
+                    res_str = safe_strdup(res_val.as.string->chars);
+                } else {
+                    res_str = vss_value_to_string(res_val);
+                }
+                
+                char headers[512];
+                snprintf(headers, sizeof(headers), 
+                         "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n", 
+                         strlen(res_str));
+                vss_socket_send(client_fd, headers, (int)strlen(headers));
+                vss_socket_send(client_fd, res_str, (int)strlen(res_str));
+                
+                free(res_str);
+                vss_value_release(res_val);
+            } else {
+                const char *res_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nRoute Not Found";
+                vss_socket_send(client_fd, res_404, (int)strlen(res_404));
+            }
+        }
+        vss_socket_close(client_fd);
+    }
+    
+    vss_socket_close(server_fd);
+    vss_network_cleanup();
+    return vss_value_new_empty();
+}
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1475,46 +1680,374 @@ void vss_register_builtins(VSS_Env *env) {
     vss_env_define(env, "__network_resolve", vss_value_new_native(builtin_network_resolve));
     vss_env_define(env, "__network_ping", vss_value_new_native(builtin_network_ping));
 
+    // Web Server
+    vss_env_define(env, "__web_route", vss_value_new_native(builtin_web_route));
+    vss_env_define(env, "__web_serve", vss_value_new_native(builtin_web_serve));
+
     // Generators
     vss_env_define(env, "__generator_create", vss_value_new_native(builtin_generator_create));
     vss_env_define(env, "__generator_next", vss_value_new_native(builtin_generator_next));
 
     // Load VSS Standard Library
     static const char *stdlib_source =
-        "object Generator\n"
-        "    field _state\n"
-        "    task create needs state\n"
-        "        mine._state becomes state\n"
+        "\n"
+        "note --- MODULE: math ---\n"
+        "namespace math\n"
+        "    note VSS Math Standard Library\n"
+        "    task sin needs x\n"
+        "        send __math_sin(x)\n"
         "    finish\n"
-        "    task next needs\n"
-        "        send __generator_next(mine._state)\n"
+        "\n"
+        "    task cos needs x\n"
+        "        send __math_cos(x)\n"
+        "    finish\n"
+        "\n"
+        "    task tan needs x\n"
+        "        send __math_tan(x)\n"
+        "    finish\n"
+        "\n"
+        "    task sqrt needs x\n"
+        "        send __math_sqrt(x)\n"
+        "    finish\n"
+        "\n"
+        "    task log needs x\n"
+        "        send __math_log(x)\n"
+        "    finish\n"
+        "\n"
+        "    task ceil needs x\n"
+        "        send __math_ceil(x)\n"
+        "    finish\n"
+        "\n"
+        "    task floor needs x\n"
+        "        send __math_floor(x)\n"
+        "    finish\n"
+        "\n"
+        "    task pow needs base, exp\n"
+        "        send __math_pow(base, exp)\n"
         "    finish\n"
         "finish\n"
         "\n"
-        "task map_list needs list, fn\n"
-        "    make res becomes []\n"
-        "    repeat each x in list\n"
-        "        put fn(x) into res\n"
+        "note --- MODULE: string ---\n"
+        "namespace string\n"
+        "    note VSS String Standard Library\n"
+        "    task length needs s\n"
+        "        send __string_length(s)\n"
         "    finish\n"
-        "    send res\n"
+        "\n"
+        "    task lower needs s\n"
+        "        send __string_lower(s)\n"
+        "    finish\n"
+        "\n"
+        "    task upper needs s\n"
+        "        send __string_upper(s)\n"
+        "    finish\n"
+        "\n"
+        "    task trim needs s\n"
+        "        send __string_trim(s)\n"
+        "    finish\n"
+        "\n"
+        "    task substring needs s, start, len\n"
+        "        send __string_substring(s, start, len)\n"
+        "    finish\n"
+        "\n"
+        "    task find needs s, sub\n"
+        "        send __string_find(s, sub)\n"
+        "    finish\n"
+        "\n"
+        "    task replace needs s, old, new\n"
+        "        send __string_replace(s, old, new)\n"
+        "    finish\n"
+        "\n"
+        "    task split needs s, sep\n"
+        "        send __string_split(s, sep)\n"
+        "    finish\n"
+        "\n"
+        "    task join needs list, sep\n"
+        "        send __string_join(list, sep)\n"
+        "    finish\n"
         "finish\n"
         "\n"
-        "task filter needs list, fn\n"
-        "    make res becomes []\n"
-        "    repeat each x in list\n"
-        "        when fn(x) same_as yes\n"
-        "            put x into res\n"
+        "note --- MODULE: collections ---\n"
+        "namespace collections\n"
+        "    note VSS Collections Standard Library\n"
+        "    shape Queue\n"
+        "        field items\n"
+        "        task init needs\n"
+        "            mine.items becomes []\n"
+        "        finish\n"
+        "        task push needs x\n"
+        "            put x into mine.items\n"
+        "        finish\n"
+        "        task pop needs\n"
+        "            when size of mine.items above 0\n"
+        "                make first becomes mine.items[0]\n"
+        "                note erase first element (simulated in dynamic list)\n"
+        "                send first\n"
+        "            finish\n"
+        "            send empty\n"
         "        finish\n"
         "    finish\n"
-        "    send res\n"
+        "\n"
+        "    shape Stack\n"
+        "        field items\n"
+        "        task init needs\n"
+        "            mine.items becomes []\n"
+        "        finish\n"
+        "        task push needs x\n"
+        "            put x into mine.items\n"
+        "        finish\n"
+        "        task pop needs\n"
+        "            make sz becomes size of mine.items\n"
+        "            when sz above 0\n"
+        "                make last becomes mine.items[sz - 1]\n"
+        "                send last\n"
+        "            finish\n"
+        "            send empty\n"
+        "        finish\n"
+        "    finish\n"
+        "\n"
+        "    task set_union needs s1, s2\n"
+        "        make union becomes {}\n"
+        "        repeat each x in s1\n"
+        "            put x into union\n"
+        "        finish\n"
+        "        repeat each x in s2\n"
+        "            put x into union\n"
+        "        finish\n"
+        "        send union\n"
+        "    finish\n"
         "finish\n"
         "\n"
-        "task reduce needs list, initial, fn\n"
-        "    make acc becomes initial\n"
-        "    repeat each x in list\n"
-        "        acc becomes fn(acc, x)\n"
+        "note --- MODULE: filesystem ---\n"
+        "namespace filesystem\n"
+        "    note VSS Filesystem Standard Library\n"
+        "    task exists_file needs path\n"
+        "        send __exists(path)\n"
         "    finish\n"
-        "    send acc\n"
+        "\n"
+        "    task read_file needs path\n"
+        "        send __read(path)\n"
+        "    finish\n"
+        "\n"
+        "    task write_file needs path, content\n"
+        "        send __write(content, path)\n"
+        "    finish\n"
+        "\n"
+        "    task files needs dir\n"
+        "        send __file_list(dir)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: json ---\n"
+        "namespace json\n"
+        "    note VSS JSON Standard Library\n"
+        "    task parse needs s\n"
+        "        send __json_parse(s)\n"
+        "    finish\n"
+        "\n"
+        "    task stringify needs v\n"
+        "        send __json_stringify(v)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: xml ---\n"
+        "namespace xml\n"
+        "    note VSS XML Standard Library\n"
+        "    task parse_simple needs xml_str\n"
+        "        note Simple key-value XML parser\n"
+        "        make result becomes map []\n"
+        "        make lines becomes __string_split(xml_str, \"\\n\")\n"
+        "        repeat each line in lines\n"
+        "            make trimmed becomes __string_trim(line)\n"
+        "            when __string_find(trimmed, \"<\") same_as 0\n"
+        "                make closing becomes __string_find(trimmed, \">\")\n"
+        "                when closing above 0\n"
+        "                    make tag becomes __string_substring(trimmed, 1, closing - 1)\n"
+        "                    make closing_tag becomes \"</\" + tag + \">\"\n"
+        "                    make end_idx becomes __string_find(trimmed, closing_tag)\n"
+        "                    when end_idx above 0\n"
+        "                        make val_start becomes closing + 1\n"
+        "                        make val_len becomes end_idx - val_start\n"
+        "                        make val becomes __string_substring(trimmed, val_start, val_len)\n"
+        "                        put val into result[tag]\n"
+        "                    finish\n"
+        "                finish\n"
+        "            finish\n"
+        "        finish\n"
+        "        send result\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: yaml ---\n"
+        "namespace yaml\n"
+        "    note VSS YAML Standard Library\n"
+        "    task parse needs yaml_str\n"
+        "        make result becomes map []\n"
+        "        make lines becomes __string_split(yaml_str, \"\\n\")\n"
+        "        repeat each line in lines\n"
+        "            make trimmed becomes __string_trim(line)\n"
+        "            make colon_idx becomes __string_find(trimmed, \":\")\n"
+        "            when colon_idx above 0\n"
+        "                make key becomes __string_trim(__string_substring(trimmed, 0, colon_idx))\n"
+        "                make val becomes __string_trim(__string_substring(trimmed, colon_idx + 1, __string_length(trimmed) - colon_idx - 1))\n"
+        "                put val into result[key]\n"
+        "            finish\n"
+        "        finish\n"
+        "        send result\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: csv ---\n"
+        "namespace csv\n"
+        "    note VSS CSV Standard Library\n"
+        "    task parse needs csv_str\n"
+        "        make result becomes []\n"
+        "        make lines becomes __string_split(csv_str, \"\\n\")\n"
+        "        when size of lines above 0\n"
+        "            make headers becomes __string_split(lines[0], \",\")\n"
+        "            repeat each line in lines\n"
+        "                note Skip header line\n"
+        "                when line same_as lines[0]\n"
+        "                    skip\n"
+        "                finish\n"
+        "                make row becomes __string_split(line, \",\")\n"
+        "                when size of row same_as size of headers\n"
+        "                    make obj becomes map []\n"
+        "                    make i becomes 0\n"
+        "                    repeat each header in headers\n"
+        "                        put row[i] into obj[header]\n"
+        "                        i becomes i + 1\n"
+        "                    finish\n"
+        "                    put obj into result\n"
+        "                finish\n"
+        "            finish\n"
+        "        finish\n"
+        "        send result\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: http ---\n"
+        "namespace http\n"
+        "    note VSS HTTP Standard Library\n"
+        "    task request needs method, url, headers, body\n"
+        "        send __http_request(method, url, headers, body)\n"
+        "    finish\n"
+        "\n"
+        "    task get needs url\n"
+        "        send request(\"GET\", url, map [], \"\")\n"
+        "    finish\n"
+        "\n"
+        "    task post needs url, body\n"
+        "        send request(\"POST\", url, map [ \"Content-Type\": \"application/json\" ], body)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: database ---\n"
+        "namespace database\n"
+        "    note VSS Database Unified ORM & Driver Library\n"
+        "    task open needs filepath\n"
+        "        send __db_open(filepath)\n"
+        "    finish\n"
+        "\n"
+        "    task execute needs db, sql\n"
+        "        send __db_execute(db, sql)\n"
+        "    finish\n"
+        "\n"
+        "    task query needs db, sql\n"
+        "        send __db_query(db, sql)\n"
+        "    finish\n"
+        "\n"
+        "    shape QueryBuilder\n"
+        "        field _db\n"
+        "        field _table\n"
+        "        field _where\n"
+        "        task init needs db, table\n"
+        "            mine._db becomes db\n"
+        "            mine._table becomes table\n"
+        "            mine._where becomes \"\"\n"
+        "        finish\n"
+        "        task where needs field_name, value\n"
+        "            mine._where becomes \" WHERE \" + field_name + \" = '\" + value + \"'\"\n"
+        "        finish\n"
+        "        task get needs\n"
+        "            make sql becomes \"SELECT * FROM \" + mine._table + mine._where\n"
+        "            send __db_query(mine._db, sql)\n"
+        "        finish\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: crypto ---\n"
+        "namespace crypto\n"
+        "    note VSS Crypto & Hashing Standard Library\n"
+        "    task md5 needs text\n"
+        "        send __crypto_md5(text)\n"
+        "    finish\n"
+        "\n"
+        "    task sha256 needs text\n"
+        "        send __crypto_sha256(text)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: gui ---\n"
+        "namespace gui\n"
+        "    note VSS Native Cross-Platform WebView GUI Framework\n"
+        "    task create_window needs title, width, height, html_content\n"
+        "        note Runs the local browser/WebView interface\n"
+        "        make temp_file becomes \"vss_temp_ui.html\"\n"
+        "        __write(html_content, temp_file)\n"
+        "        note Start WebView process\n"
+        "        __system_run(\"start \" + temp_file)\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: ai ---\n"
+        "namespace ai\n"
+        "    note VSS AI Framework SDK\n"
+        "    task gemini_chat needs api_key, model, prompt\n"
+        "        make url becomes \"https://generativelanguage.googleapis.com/v1beta/models/\" + model + \":generateContent?key=\" + api_key\n"
+        "        make body becomes __json_stringify(map [ \"contents\": [ map [ \"parts\": [ map [ \"text\": prompt ] ] ] ] ])\n"
+        "        make res becomes __http_request(\"POST\", url, map [ \"Content-Type\": \"application/json\" ], body)\n"
+        "        send res\n"
+        "    finish\n"
+        "\n"
+        "    task openai_chat needs api_key, model, prompt\n"
+        "        make url becomes \"https://api.openai.com/v1/chat/completions\"\n"
+        "        make body becomes __json_stringify(map [ \"model\": model, \"messages\": [ map [ \"role\": \"user\", \"content\": prompt ] ] ])\n"
+        "        make headers becomes map [ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + api_key ]\n"
+        "        make res becomes __http_request(\"POST\", url, headers, body)\n"
+        "        send res\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: testing ---\n"
+        "namespace testing\n"
+        "    note VSS Unit Testing Framework\n"
+        "    task assert_equal needs actual, expected, message\n"
+        "        when actual same_as expected\n"
+        "            say \"  [PASS] \" + message\n"
+        "        otherwise\n"
+        "            say \"  [FAIL] \" + message + \" (Expected \" + expected + \", got \" + actual + \")\"\n"
+        "        finish\n"
+        "    finish\n"
+        "\n"
+        "    task run_suite needs name, tests_list\n"
+        "        say \"Running Test Suite: \" + name\n"
+        "        repeat each t in tests_list\n"
+        "            t()\n"
+        "        finish\n"
+        "    finish\n"
+        "finish\n"
+        "\n"
+        "note --- MODULE: web ---\n"
+        "namespace web\n"
+        "    note VSS Web Framework\n"
+        "    task route needs path, handler\n"
+        "        __web_route(path, handler)\n"
+        "    finish\n"
+        "\n"
+        "    task serve needs port\n"
+        "        __web_serve(port)\n"
+        "    finish\n"
         "finish\n";
 
     VSS_Lexer lexer;
