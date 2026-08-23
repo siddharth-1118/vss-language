@@ -1,0 +1,33 @@
+note VSS Logger Package
+namespace logger
+    task write_log needs level, msg
+        make timestamp becomes __time_now()
+        make time_str becomes __time_format(timestamp, "%Y-%m-%d %H:%M:%S")
+        make formatted becomes "[" + time_str + "] [" + level + "] " + msg
+        say formatted
+        
+        grab filesystem
+        make log_file becomes "app.log"
+        make prev_content becomes ""
+        when filesystem.exists_file(log_file)
+            make prev_content becomes filesystem.read_file(log_file)
+        finish
+        filesystem.write_file(log_file, prev_content + formatted + "\n")
+    finish
+
+    task info needs msg
+        write_log("INFO", msg)
+    finish
+
+    task warn needs msg
+        write_log("WARN", msg)
+    finish
+
+    task error needs msg
+        write_log("ERROR", msg)
+    finish
+
+    task debug needs msg
+        write_log("DEBUG", msg)
+    finish
+finish
