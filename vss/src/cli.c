@@ -492,6 +492,7 @@ static void print_help(void) {
     printf("  vss <file.vss>             Run a VSS source or bytecode file\n");
     printf("  vss run <file.vss>         Explicitly run a VSS file\n");
     printf("  vss build <file.vss>       Compile a source file into .vssc bytecode\n");
+    printf("  vss install <name>         Install a VSS software/package\n");
     printf("  vss new <ProjectName>      Create a new VSS template project folder\n");
     printf("  vss init                   Initialize VSS in the current directory\n");
     printf("  vss test                   Run test suites in the current directory\n");
@@ -603,10 +604,34 @@ int vss_run_cli(int argc, char **argv) {
 
     if (strcmp(cmd, "run") == 0) {
         if (argc < 3) {
-            fprintf(stderr, "\033[1;31mError:\033[0m Missing file argument. Usage: vss run <file.vss>\n");
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing file/package argument. Usage: vss run <file.vss | package_name>\n");
             return 1;
         }
-        return run_file(argv[2]);
+        char resolved_path[512];
+        strncpy(resolved_path, argv[2], sizeof(resolved_path));
+        resolved_path[sizeof(resolved_path) - 1] = '\0';
+        if (!vss_file_exists(resolved_path)) {
+            snprintf(resolved_path, sizeof(resolved_path), "%s.vss", argv[2]);
+            if (!vss_file_exists(resolved_path)) {
+                snprintf(resolved_path, sizeof(resolved_path), "packages/%s", argv[2]);
+                if (!vss_file_exists(resolved_path)) {
+                    snprintf(resolved_path, sizeof(resolved_path), "packages/%s.vss", argv[2]);
+                    if (!vss_file_exists(resolved_path)) {
+                        fprintf(stderr, "\033[1;31mError:\033[0m File or package not found: '%s'\n", argv[2]);
+                        return 1;
+                    }
+                }
+            }
+        }
+        return run_file(resolved_path);
+    }
+
+    if (strcmp(cmd, "install") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "\033[1;31mError:\033[0m Missing software/package name. Usage: vss install <name>\n");
+            return 1;
+        }
+        return install_package(argv[2]);
     }
 
     if (strcmp(cmd, "build") == 0) {
@@ -714,6 +739,13 @@ int vss_run_cli(int argc, char **argv) {
         printf("\033[1;36mChecking for updates...\033[0m\n");
         printf("VSS is up to date. Current version: %s\n", VSS_VERSION_STRING);
         return 0;
+    }
+
+    // Check if it's an installed package/software name that we can execute directly
+    char pkg_path[512];
+    snprintf(pkg_path, sizeof(pkg_path), "packages/%s.vss", cmd);
+    if (vss_file_exists(pkg_path)) {
+        return run_file(pkg_path);
     }
 
     // ── Priority 3: Unknown command with typo suggestions ────────────────────
