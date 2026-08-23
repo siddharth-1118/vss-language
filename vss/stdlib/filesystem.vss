@@ -19,3 +19,7 @@ task create_directory needs path
     send __make_dir(path)
 finish
 
+task delete_file needs path
+    send __erase(path)
+finish
+
