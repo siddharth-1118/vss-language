@@ -1,0 +1,31 @@
+note VSS Project Creator Software
+grab filesystem
+
+make args becomes __system_args()
+make len becomes __size(args)
+
+when len below 3
+    say "Error: Missing project name."
+    say "Usage: vss creator <ProjectName>"
+    __system_exit(1)
+finish
+
+make proj_name becomes args item 2
+say "Creating new VSS website project: " + proj_name
+
+note Create project directory and subdirectories
+filesystem.create_directory(proj_name)
+filesystem.create_directory(proj_name + "/public")
+
+note Create server.vss
+make server_code becomes "grab web\ngrab filesystem\n\nweb.route(\"/\", { req ->\n    say \"Serving home page\"\n    send filesystem.read_file(\"public/index.html\")\n})\n\nsay \"VSS server running at http://localhost:8080\"\nweb.serve(8080)\n"
+filesystem.write_file(proj_name + "/server.vss", server_code)
+
+note Create public/index.html
+make html_code becomes "<!DOCTYPE html>\n<html>\n<head>\n    <title>My VSS Website</title>\n    <script src=\"https://cdn.tailwindcss.com\"></script>\n</head>\n<body class=\"bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between\">\n    <header class=\"border-b border-slate-800 p-6\">\n        <div class=\"max-w-6xl mx-auto flex justify-between items-center\">\n            <span class=\"text-2xl font-bold text-sky-400\">VSS App</span>\n            <nav class=\"space-x-6\">\n                <a href=\"#\" class=\"hover:text-sky-400 transition\">Home</a>\n                <a href=\"#\" class=\"hover:text-sky-400 transition\">About</a>\n                <a href=\"#\" class=\"hover:text-sky-400 transition\">Contact</a>\n            </nav>\n        </div>\n    </header>\n    <main class=\"max-w-4xl mx-auto text-center px-6 py-20 flex-grow flex flex-col justify-center\">\n        <h1 class=\"text-5xl font-extrabold mb-6 tracking-tight bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent\">\n            Your VSS Website is Live!\n        </h1>\n        <p class=\"text-lg text-slate-400 mb-8 max-w-2xl mx-auto\">\n            This template was scaffolded using the VSS Software Creator. It features native HTTP routing and database integrations.\n        </p>\n        <div class=\"flex justify-center gap-4\">\n            <a href=\"https://github.com/siddharth-1118/vss-language\" class=\"bg-sky-600 hover:bg-sky-500 text-white font-semibold px-6 py-3 rounded-lg shadow-lg transition\">\n                VSS GitHub\n            </a>\n        </div>\n    </main>\n    <footer class=\"border-t border-slate-900 py-6 text-center text-slate-500 text-sm\">\n        Powered by the VSS Programming Language\n    </footer>\n</body>\n</html>"
+filesystem.write_file(proj_name + "/public/index.html", html_code)
+
+say "Success! Project scaffolded successfully inside: ./" + proj_name
+say "To run your web server, type:"
+say "  cd " + proj_name
+say "  vss server.vss"
