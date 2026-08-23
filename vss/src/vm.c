@@ -1240,10 +1240,15 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     
                     exports = vss_value_new_map();
                     VSS_ValMap *m = exports.as.map;
+                    size_t mod_name_len = strlen(module_name);
                     for (size_t i = 0; i < mod_env->count; i++) {
                         if (strncmp(mod_env->items[i].name, "__", 2) == 0) continue;
+                        const char *key_name = mod_env->items[i].name;
+                        if (strncmp(key_name, module_name, mod_name_len) == 0 && key_name[mod_name_len] == '_') {
+                            key_name = key_name + mod_name_len + 1;
+                        }
                         m->entries = realloc(m->entries, sizeof(VSS_ValMapEntry) * (m->count + 1));
-                        m->entries[m->count].key = safe_strdup(mod_env->items[i].name);
+                        m->entries[m->count].key = safe_strdup(key_name);
                         m->entries[m->count].value = mod_env->items[i].value;
                         vss_value_retain(mod_env->items[i].value);
                         m->count++;
@@ -1262,6 +1267,9 @@ bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env) {
                     vss_value_retain(exports);
                     load_entry->is_loading = false;
                     
+                    for (size_t i = 0; i < mod_env->count; i++) {
+                        vss_env_define(vm.globals, mod_env->items[i].name, mod_env->items[i].value);
+                    }
                     vss_env_release(mod_env);
                 }
                 
