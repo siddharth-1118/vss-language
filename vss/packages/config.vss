@@ -1,0 +1,51 @@
+note VSS Config Package
+namespace config
+    make env_map becomes map []
+
+    task load needs path
+        grab filesystem
+        grab string
+        
+        when filesystem.exists_file(path)
+            make content becomes filesystem.read_file(path)
+            make lines becomes string.split(content, "\n")
+            make len becomes __size(lines)
+            make i becomes 0
+            
+            during i below len
+                make line becomes string.trim(lines item i)
+                make is_comment becomes no
+                make line_len becomes string.length(line)
+                
+                when line_len below 1
+                    make is_comment becomes yes
+                finish
+                
+                make first_char becomes ""
+                when line_len at_least 1
+                    make first_char becomes string.substring(line, 0, 1)
+                finish
+                
+                when first_char same_as "#"
+                    make is_comment becomes yes
+                finish
+                
+                when is_comment same_as no
+                    make parts becomes string.split(line, "=")
+                    make parts_len becomes __size(parts)
+                    when parts_len at_least 2
+                        make key becomes string.trim(parts item 0)
+                        make val becomes string.trim(parts item 1)
+                        set env_map field key becomes val
+                    finish
+                finish
+                
+                i becomes i + 1
+            finish
+        finish
+    finish
+
+    task get needs key
+        send env_map field key
+    finish
+finish
