@@ -1,0 +1,19 @@
+note VSS Fetch Package
+namespace fetch
+    task get needs url
+        grab http
+        grab json
+        make res becomes http.get(url)
+        make body_str becomes res field "body"
+        send json.parse(body_str)
+    finish
+
+    task post needs url, body
+        grab http
+        grab json
+        make post_body_str becomes json.stringify(body)
+        make res becomes http.post(url, post_body_str)
+        make body_str becomes res field "body"
+        send json.parse(body_str)
+    finish
+finish
