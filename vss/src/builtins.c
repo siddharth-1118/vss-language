@@ -591,6 +591,16 @@ static VSS_Value builtin_erase(size_t arg_count, VSS_Value *args, bool *out_erro
     return vss_value_new_empty();
 }
 
+static VSS_Value builtin_make_dir(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
+    if (arg_count != 1 || args[0].type != VSS_VAL_STRING) {
+        *out_error = true;
+        *out_error_msg = safe_strdup("__make_dir expects a string path");
+        return vss_value_new_empty();
+    }
+    bool success = vss_make_dir(args[0].as.string->chars);
+    return vss_value_new_bool(success);
+}
+
 static VSS_Value builtin_file_list(size_t arg_count, VSS_Value *args, bool *out_error, char **out_error_msg) {
     if (arg_count != 1 || args[0].type != VSS_VAL_STRING) {
         *out_error = true;
@@ -1621,6 +1631,7 @@ void vss_register_builtins(VSS_Env *env) {
     vss_env_define(env, "__add", vss_value_new_native(builtin_add));
     vss_env_define(env, "__erase", vss_value_new_native(builtin_erase));
     vss_env_define(env, "__file_list", vss_value_new_native(builtin_file_list));
+    vss_env_define(env, "__make_dir", vss_value_new_native(builtin_make_dir));
 
     // Math
     vss_env_define(env, "__math_sin", vss_value_new_native(builtin_math_sin));
@@ -1835,6 +1846,10 @@ void vss_register_builtins(VSS_Env *env) {
         "\n"
         "    task files needs dir\n"
         "        send __file_list(dir)\n"
+        "    finish\n"
+        "\n"
+        "    task create_directory needs path\n"
+        "        send __make_dir(path)\n"
         "    finish\n"
         "finish\n"
         "\n"
