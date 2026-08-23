@@ -941,7 +941,7 @@ static VSS_Value builtin_http_request(size_t arg_count, VSS_Value *args, bool *o
     
     // Construct command
     char cmd[4096];
-    sprintf(cmd, "curl -s -i -X %s --data-binary @vss_temp_req_body.txt ", method);
+    sprintf(cmd, "curl -s -X %s --data-binary @vss_temp_req_body.txt ", method);
     
     // Append headers
     for (size_t i = 0; i < headers->count; i++) {
@@ -1850,6 +1850,10 @@ void vss_register_builtins(VSS_Env *env) {
         "\n"
         "    task create_directory needs path\n"
         "        send __make_dir(path)\n"
+        "    finish\n"
+        "\n"
+        "    task delete_file needs path\n"
+        "        send __erase(path)\n"
         "    finish\n"
         "finish\n"
         "\n"
