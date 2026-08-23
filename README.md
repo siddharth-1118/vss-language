@@ -1,76 +1,234 @@
-# VSS (Very Simple Syntax) Language
+<div align="center">
 
-VSS is a highly readable, human-centric programming language designed to eliminate syntax noise (no curly braces, semicolons, or parentheses) and deliver absolute simplicity for both system automation and web development.
+<img src="https://img.shields.io/badge/VSS-Programming%20Language-blue?style=for-the-badge&logo=code&logoColor=white" />
+<img src="https://img.shields.io/github/v/release/siddharth-1118/vss-language?style=for-the-badge&color=green" />
+<img src="https://img.shields.io/github/stars/siddharth-1118/vss-language?style=for-the-badge&color=yellow" />
+<img src="https://img.shields.io/github/license/siddharth-1118/vss-language?style=for-the-badge" />
 
-This repository contains the complete VSS v1.0.0 implementation, including a compiler frontend, dynamic runtime with reference counting, a tree-walk interpreter, a live development web server, and official IDE support extensions.
+# 🚀 VSS Programming Language
 
----
+**A modern, simple, and powerful programming language with native web server support**
 
-## Key Features
+[📦 Install](#-installation) · [📖 Docs](#-language-guide) · [🌐 Web Server](#-web-server) · [💬 Discussions](https://github.com/siddharth-1118/vss-language/discussions)
 
-- **No Syntax Noise:** No `{}` or `;`. Indentation and simple keywords (`when`, `repeat`, `finish`) manage code blocks.
-- **Dynamic Type System:** Supports numbers, booleans, strings, lists, maps, and task closures.
-- **Memory Safety (ARC):** Automatic Reference Counting (ARC) handles garbage collection in C with zero memory leaks.
-- **Error Handling (`attempt/rescue`):** Native try-catch mechanism with named error variables.
-- **Embedded Webpage Delimiters:** Create Tailwind-powered responsive webpages natively using `hi htmvss` and `bye htmvss`.
-- **Built-in Dev Server:** Run `vss --serve` to compile and launch `.htmvss` pages with dynamic hot-reloading.
+</div>
 
 ---
 
-## Getting Started
+## ✨ What is VSS?
 
-### 1. Requirements
-- Linux or WSL (Ubuntu/Debian)
-- GCC compiler and Make (`build-essential`)
+VSS is a clean, readable programming language designed to be **simple yet powerful**. It features:
 
-### 2. Compilation
-To build the VSS compiler executable:
+- 🌐 **Native HTTP web server** — build websites with just a few lines
+- 🗄️ **Built-in SQLite database** — no external setup needed
+- 📁 **File system operations** — read, write, list files easily
+- 🔐 **Crypto functions** — MD5, SHA-256 hashing built-in
+- 🌍 **HTTP client** — call any REST API
+- 📦 **JSON, XML, CSV** support out of the box
+- 🧮 **Math library** — sin, cos, sqrt, pow and more
+
+---
+
+## 📦 Installation
+
+### Windows
+Download `VSS-3.0.0-Setup.exe` from [Releases](https://github.com/siddharth-1118/vss-language/releases/latest)
+
+Or install via **winget**:
 ```bash
-cd vss
-make
+winget install VSS.VSS
 ```
 
-### 3. Running Examples
-Run the built-in VSS programs:
+### Linux
 ```bash
-./vss examples/hello.vss
-./vss examples/conditions.vss
-./vss examples/tasks.vss
+wget https://github.com/siddharth-1118/vss-language/releases/latest/download/vss-linux-x64.tar.gz
+tar -xzf vss-linux-x64.tar.gz
+sudo mv vss /usr/local/bin/
+```
+
+### macOS
+```bash
+curl -L https://github.com/siddharth-1118/vss-language/releases/latest/download/vss-macos-arm64.tar.gz | tar xz
+sudo mv vss /usr/local/bin/
 ```
 
 ---
 
-## Web Development in VSS
+## 🌐 Web Server
 
-VSS has native support for compiling and serving web templates. Create a file named `page.htmvss`:
+Build a full website in VSS — no frameworks needed!
 
 ```vss
-hi htmvss
-    say "    <div class='bg-slate-800 p-8 rounded-2xl shadow-2xl text-center'>"
-    say "        <h1 class='text-4xl font-extrabold text-indigo-400'>Hello from VSS!</h1>"
-    say "        <p class='text-slate-300 mt-2'>Rendered dynamically by the VSS Runtime.</p>"
-    say "    </div>"
-bye htmvss
-```
-Start the interactive dev server to automatically compile and launch it in your browser:
-```bash
-./vss --serve
-```
+grab web
 
-When started, the dev server scans the current working directory for `.htmvss` files:
-1. It looks for `index.htmvss` to serve as the default entry point.
-2. If not found, it checks for `main.htmvss`.
-3. If neither exists but exactly one `.htmvss` file exists, it is served automatically.
-4. If multiple `.htmvss` files exist, it lists them and prompts you to select one.
-5. If no `.htmvss` files are found, it prints a message and starts the server without opening the browser.
+web.route("/", { req ->
+    send "<!DOCTYPE html><html><body><h1>Hello from VSS!</h1></body></html>"
+})
+
+web.route("/about", { req ->
+    send "<!DOCTYPE html><html><body><h1>About VSS</h1></body></html>"
+})
+
+say "Server running at http://localhost:8080"
+web.serve(8080)
+```
 
 ---
 
-## Editor Support (VS Code & Antigravity IDE)
+## 📖 Language Guide
 
-The official extension provides syntax highlighting (including HTML inside VSS strings) and real-time error checking.
+### Variables & Output
+```vss
+let name = "VSS"
+let version = 3.0
+say "Welcome to " + name + " v" + version
+```
 
-To install manually:
-Copy the `vss-support` directory to your extensions folder:
-- **VS Code:** `~/.vscode/extensions/`
-- **Antigravity IDE:** `~/.antigravity-ide/extensions/`
+### Functions (Tasks)
+```vss
+task greet needs name
+    say "Hello, " + name + "!"
+finish
+
+greet("World")
+```
+
+### Conditions
+```vss
+let score = 95
+
+check score >= 90 then
+    say "A grade!"
+else check score >= 80 then
+    say "B grade!"
+else
+    say "Keep studying!"
+finish
+```
+
+### Loops
+```vss
+repeat 5 times
+    say "VSS is awesome!"
+finish
+
+let i = 0
+loop while i < 10
+    say i
+    let i = i + 1
+finish
+```
+
+### Closures
+```vss
+let double = { x -> x * 2 }
+say double(21)   note → 42
+```
+
+### Namespaces
+```vss
+namespace utils
+    task add needs a, b
+        send a + b
+    finish
+finish
+
+say utils_add(3, 4)   note → 7
+```
+
+---
+
+## 📚 Standard Library
+
+| Module | Functions |
+|--------|-----------|
+| `web` | `route(path, handler)`, `serve(port)` |
+| `math` | `sin`, `cos`, `sqrt`, `pow`, `log`, `ceil`, `floor` |
+| `string` | `upper`, `lower`, `length`, `trim`, `split`, `join`, `replace` |
+| `filesystem` | `read`, `write`, `exists`, `list` |
+| `json` | `parse`, `stringify`, `read`, `write` |
+| `database` | `open`, `execute`, `query` |
+| `http` | `request(method, url)` |
+| `crypto` | `md5`, `sha256` |
+| `testing` | `assert` |
+
+---
+
+## 🗄️ Database Example
+
+```vss
+grab database
+
+let db = database.open("myapp.db")
+database.execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER, task TEXT)")
+database.execute(db, "INSERT INTO todos VALUES (1, 'Learn VSS')")
+
+let todos = database.query(db, "SELECT * FROM todos")
+say todos
+```
+
+---
+
+## 🧪 Testing
+
+```vss
+grab testing
+
+task add needs a, b
+    send a + b
+finish
+
+testing.assert(add(2, 3) == 5, "addition works")
+testing.assert(add(0, 0) == 0, "zero works")
+say "All tests passed!"
+```
+
+---
+
+## 🔐 Crypto
+
+```vss
+grab crypto
+
+let hash = crypto.sha256("hello world")
+say hash
+```
+
+---
+
+## 📁 File System
+
+```vss
+grab filesystem
+
+filesystem.write("notes.txt", "Hello VSS!")
+let content = filesystem.read("notes.txt")
+say content
+
+let files = filesystem.list(".")
+say files
+```
+
+---
+
+## 💬 Community
+
+- 💬 [GitHub Discussions](https://github.com/siddharth-1118/vss-language/discussions) — Ask questions, share ideas
+- 🐛 [Issues](https://github.com/siddharth-1118/vss-language/issues) — Report bugs
+- 🔀 [Pull Requests](https://github.com/siddharth-1118/vss-language/pulls) — Contribute
+
+---
+
+## 📄 License
+
+MIT License — free to use, modify, and distribute.
+
+---
+
+<div align="center">
+
+**If VSS helped you, please ⭐ star this repo!**
+
+Made with ❤️ by [siddharth-1118](https://github.com/siddharth-1118)
+
+</div>
