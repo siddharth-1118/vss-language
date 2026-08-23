@@ -1,0 +1,40 @@
+note VSS Cache Package
+namespace cache
+    make cache_map becomes map []
+    make cache_file becomes ".vss_cache"
+
+    task init
+        grab filesystem
+        grab json
+        when filesystem.exists_file(cache_file)
+            make content becomes filesystem.read_file(cache_file)
+            make content_size becomes __size(content)
+            when content_size above 0
+                make parsed becomes json.parse(content)
+                make cache_map becomes parsed
+            finish
+        finish
+    finish
+
+    task store needs key, val
+        grab filesystem
+        grab json
+        set cache_map field key becomes val
+        make content becomes json.stringify(cache_map)
+        filesystem.write_file(cache_file, content)
+    finish
+
+    task get needs key
+        send cache_map field key
+    finish
+
+    task clear
+        grab filesystem
+        make cache_map becomes map []
+        when filesystem.exists_file(cache_file)
+            filesystem.delete_file(cache_file)
+        finish
+    finish
+finish
+
+cache_init()
