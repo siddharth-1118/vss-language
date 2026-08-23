@@ -14,6 +14,17 @@ static bool is_known_namespace(const char *name) {
     return false;
 }
 
+static bool is_stdlib_module(const char *name) {
+    return strcmp(name, "math") == 0 || strcmp(name, "string") == 0 ||
+           strcmp(name, "collections") == 0 || strcmp(name, "filesystem") == 0 ||
+           strcmp(name, "json") == 0 || strcmp(name, "xml") == 0 ||
+           strcmp(name, "yaml") == 0 || strcmp(name, "csv") == 0 ||
+           strcmp(name, "http") == 0 || strcmp(name, "database") == 0 ||
+           strcmp(name, "crypto") == 0 || strcmp(name, "gui") == 0 ||
+           strcmp(name, "ai") == 0 || strcmp(name, "testing") == 0 ||
+           strcmp(name, "web") == 0;
+}
+
 #include "chunk.h"
 
 static void compile_expr(VSS_Expr *expr);
@@ -282,7 +293,7 @@ static void compile_expr(VSS_Expr *expr) {
         case VSS_EXPR_NAME: {
             char resolved_name[256];
             strcpy(resolved_name, expr->as.name);
-            if (current_namespace[0] != '\0' && strncmp(expr->as.name, "__", 2) != 0 && resolve_local(current_compiler, expr->as.name) == -1 && resolve_upvalue(current_compiler, expr->as.name) == -1) {
+            if (current_namespace[0] != '\0' && strncmp(expr->as.name, "__", 2) != 0 && !is_stdlib_module(expr->as.name) && resolve_local(current_compiler, expr->as.name) == -1 && resolve_upvalue(current_compiler, expr->as.name) == -1) {
                 snprintf(resolved_name, sizeof(resolved_name), "%s_%s", current_namespace, expr->as.name);
             }
             int arg = resolve_local(current_compiler, resolved_name);
