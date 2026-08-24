@@ -1,0 +1,21 @@
+note VSS WebFlow Package
+namespace webflow
+    task route needs path, handler
+        grab web
+        web.route(path, handler)
+    finish
+
+    task serve needs port
+        grab web
+        web.serve(port)
+    finish
+
+    task json needs map_val
+        grab json
+        send json.stringify(map_val)
+    finish
+
+    task html needs html_str
+        send html_str
+    finish
+finish
