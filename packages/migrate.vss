@@ -1,0 +1,50 @@
+note VSS Migrate Package
+grab filesystem
+grab database
+grab string
+grab orm
+
+namespace migrate
+    task init needs db_path
+        orm.connect(db_path)
+        orm.execute("CREATE TABLE IF NOT EXISTS migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, executed_at TEXT)")
+    finish
+
+    task run needs migrations_dir
+        filesystem.create_directory(migrations_dir)
+        make files becomes filesystem.files(migrations_dir)
+        make sz becomes __size(files)
+        make i becomes 0
+        
+        during i below sz
+            make file becomes files item i
+            make is_sql becomes no
+            make flen becomes string.length(file)
+            when flen above 4
+                make suffix becomes string.substring(file, flen - 4, 4)
+                when suffix same_as ".sql"
+                    is_sql becomes yes
+                finish
+            finish
+            
+            when is_sql same_as yes
+                make check_sql becomes "SELECT * FROM migrations WHERE name = '" + file + "'"
+                make executed becomes orm.query(check_sql)
+                when __size(executed) same_as 0
+                    say "Running migration: " + file
+                    make sql_content becomes filesystem.read_file(migrations_dir + "/" + file)
+                    orm.execute(sql_content)
+                    
+                    make now_str becomes __time_format(__time_now(), "%Y-%m-%d %H:%M:%S")
+                    make keys becomes ["name", "executed_at"]
+                    make record becomes map []
+                    set record field "name" becomes file
+                    set record field "executed_at" becomes now_str
+                    orm.insert("migrations", record, keys)
+                finish
+            finish
+            i becomes i + 1
+        finish
+        say "Migrations complete!"
+    finish
+finish
