@@ -1,0 +1,33 @@
+note VSS API Studio Package
+grab fetch
+grab json
+
+make args becomes __system_args()
+make len becomes __size(args)
+
+when len below 4
+    say "Usage: vss apistudio <get/post> <url> [body_json]"
+    __system_exit(1)
+finish
+
+make method becomes args item 2
+make url becomes args item 3
+
+when method same_as "get"
+    say "Sending GET request to: " + url
+    make data becomes fetch.get(url)
+    say json.stringify(data)
+finish
+
+when method same_as "post"
+    make body_str becomes ""
+    when len at_least 5
+        body_str becomes args item 4
+    finish
+    say "Sending POST request to: " + url
+    say "Body: " + body_str
+    
+    make body_map becomes json.parse(body_str)
+    make data becomes fetch.post(url, body_map)
+    say json.stringify(data)
+finish
