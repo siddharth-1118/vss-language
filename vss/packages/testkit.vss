@@ -1,0 +1,76 @@
+note VSS TestKit Package
+grab filesystem
+grab string
+
+namespace testkit
+    task expect_equals needs actual, expected
+        when actual not_same_as expected
+            say "FAIL: Expected '" + expected + "', got '" + actual + "'"
+            __system_exit(1)
+        finish
+        say "PASS"
+    finish
+finish
+
+make args becomes __system_args()
+make len becomes __size(args)
+
+make run_all becomes yes
+make test_file becomes ""
+
+when len at_least 3
+    make sub_cmd becomes args item 2
+    when sub_cmd same_as "run"
+        when len at_least 4
+            test_file becomes args item 3
+            run_all becomes no
+        finish
+    finish
+finish
+
+when run_all same_as no
+    say "Running test file: " + test_file
+    make output becomes __system_run("vss " + test_file)
+    say output
+finish
+
+when run_all same_as yes
+    say "Finding tests in tests/..."
+    when filesystem.exists_file("tests")
+        make files_list becomes filesystem.files("tests")
+        make sz becomes __size(files_list)
+        make i becomes 0
+        make passed_count becomes 0
+        make failed_count becomes 0
+        
+        during i below sz
+            make file becomes files_list item i
+            make is_test becomes no
+            make flen becomes string.length(file)
+            when flen above 9
+                make suffix becomes string.substring(file, flen + -9, flen)
+                when suffix same_as "_test.vss"
+                    is_test becomes yes
+                finish
+            finish
+            
+            when is_test same_as yes
+                say "Running " + file + "..."
+                make output becomes __system_run("vss tests/" + file)
+                make failed becomes __string_find(output, "FAIL")
+                when failed at_least 0
+                    failed_count becomes failed_count + 1
+                    say output
+                otherwise
+                    passed_count becomes passed_count + 1
+                    say "PASS"
+                finish
+            finish
+            i becomes i + 1
+        finish
+        
+        say "Tests Summary:"
+        say "Passed: " + passed_count
+        say "Failed: " + failed_count
+    finish
+finish
