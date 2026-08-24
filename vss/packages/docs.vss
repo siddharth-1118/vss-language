@@ -1,0 +1,61 @@
+note VSS Docs Package
+grab filesystem
+grab string
+
+say "Generating documentation..."
+filesystem.create_directory("docs")
+
+make files_list becomes filesystem.files(".")
+make sz becomes __size(files_list)
+make i becomes 0
+
+make html_content becomes "<html><head><title>VSS Docs</title></head><body><h1>Project Documentation</h1>"
+
+during i below sz
+    make file becomes files_list item i
+    make flen becomes string.length(file)
+    make is_vss becomes no
+    when flen above 4
+        make suffix becomes string.substring(file, flen + -4, flen)
+        when suffix same_as ".vss"
+            is_vss becomes yes
+        finish
+    finish
+    
+    when is_vss same_as yes
+        html_content becomes html_content + "<h2>File: " + file + "</h2>"
+        make content becomes filesystem.read_file(file)
+        make lines becomes string.split(content, "\n")
+        make lines_count becomes __size(lines)
+        make li becomes 0
+        during li below lines_count
+            make line becomes string.trim(lines item li)
+            make is_note becomes no
+            make is_task becomes no
+            make line_len becomes string.length(line)
+            
+            when line_len at_least 4
+                make start_four becomes string.substring(line, 0, 4)
+                when start_four same_as "note"
+                    is_note becomes yes
+                finish
+                when start_four same_as "task"
+                    is_task becomes yes
+                finish
+            finish
+            
+            when is_note same_as yes
+                html_content becomes html_content + "<p><i>" + line + "</i></p>"
+            finish
+            when is_task same_as yes
+                html_content becomes html_content + "<pre><code>" + line + "</code></pre>"
+            finish
+            li becomes li + 1
+        finish
+    finish
+    i becomes i + 1
+finish
+
+html_content becomes html_content + "</body></html>"
+filesystem.write_file("docs/index.html", html_content)
+say "Documentation generated in docs/index.html"
