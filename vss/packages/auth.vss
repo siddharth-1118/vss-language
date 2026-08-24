@@ -1,0 +1,47 @@
+note VSS Auth Package
+grab crypto
+grab orm
+
+namespace auth
+    task setup
+        orm.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT)")
+        orm.execute("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT, expires_at TEXT)")
+    finish
+
+    task register needs username, password
+        make hash becomes crypto.sha256(password)
+        make keys becomes ["username", "password_hash"]
+        make user becomes map []
+        set user field "username" becomes username
+        set user field "password_hash" becomes hash
+        orm.insert("users", user, keys)
+        send yes
+    finish
+
+    task login needs username, password
+        make hash becomes crypto.sha256(password)
+        make sql becomes "SELECT * FROM users WHERE username = '" + username + "' AND password_hash = '" + hash + "'"
+        make matches becomes orm.query(sql)
+        when __size(matches) above 0
+            make token becomes crypto.md5(username + __time_format(__time_now(), "%Y-%m-%d %H:%M:%S"))
+            make keys becomes ["token", "username", "expires_at"]
+            make sess becomes map []
+            set sess field "token" becomes token
+            set sess field "username" becomes username
+            set sess field "expires_at" becomes __time_format(__time_now() + 3600, "%Y-%m-%d %H:%M:%S")
+            orm.insert("sessions", sess, keys)
+            send token
+        finish
+        send empty
+    finish
+
+    task validate_session needs token
+        make sql becomes "SELECT * FROM sessions WHERE token = '" + token + "'"
+        make matches becomes orm.query(sql)
+        when __size(matches) above 0
+            make matched_user becomes matches item 0
+            send matched_user field "username"
+        finish
+        send empty
+    finish
+finish
