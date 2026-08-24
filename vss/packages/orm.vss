@@ -1,0 +1,43 @@
+note VSS ORM Package
+namespace orm
+    make db_conn becomes empty
+
+    task connect needs db_path
+        grab database
+        db_conn becomes database.open(db_path)
+    finish
+
+    task query needs sql
+        grab database
+        send database.query(db_conn, sql)
+    finish
+
+    task execute needs sql
+        grab database
+        database.execute(db_conn, sql)
+    finish
+
+    task insert needs table, record, keys
+        grab database
+        make cols becomes ""
+        make vals becomes ""
+        make len becomes __size(keys)
+        make i becomes 0
+        during i below len
+            make key becomes keys item i
+            make val becomes record field key
+            
+            when i above 0
+                cols becomes cols + ", "
+                vals becomes vals + ", "
+            finish
+            
+            cols becomes cols + key
+            vals becomes vals + "'" + val + "'"
+            i becomes i + 1
+        finish
+        
+        make sql becomes "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")"
+        database.execute(db_conn, sql)
+    finish
+finish
