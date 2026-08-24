@@ -1,0 +1,36 @@
+note VSS Forge Package
+grab filesystem
+grab json
+
+make args becomes __system_args()
+make len becomes __size(args)
+when len below 4
+    say "Usage: vss forge new <project_name>"
+    __system_exit(1)
+finish
+
+make cmd becomes args item 2
+make project_name becomes args item 3
+
+when cmd same_as "new"
+    say "Creating new VSS project: " + project_name
+    filesystem.create_directory(project_name)
+    filesystem.create_directory(project_name + "/routes")
+    filesystem.create_directory(project_name + "/controllers")
+    filesystem.create_directory(project_name + "/database")
+    filesystem.create_directory(project_name + "/tests")
+
+    make config_map becomes map []
+    set config_map field "name" becomes project_name
+    set config_map field "version" becomes "1.0.0"
+    set config_map field "dependencies" becomes map []
+    make json_str becomes json.stringify(config_map)
+    filesystem.write_file(project_name + "/vss.json", json_str)
+
+    make main_content becomes "note Main entry point for " + project_name + "\n"
+    main_content becomes main_content + "grab logger\n"
+    main_content becomes main_content + "logger.info(\"Hello from " + project_name + "!\")\n"
+    filesystem.write_file(project_name + "/main.vss", main_content)
+
+    say "Project created successfully!"
+finish
