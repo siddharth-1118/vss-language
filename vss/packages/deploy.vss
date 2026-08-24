@@ -1,0 +1,27 @@
+note VSS Deploy Package
+grab filesystem
+grab json
+
+say "Deploying VSS application..."
+
+make config_file becomes "deploy.json"
+when filesystem.exists_file(config_file) same_as no
+    make default_deploy becomes map []
+    set default_deploy field "target" becomes "local"
+    set default_deploy field "port" becomes 8080
+    filesystem.write_file(config_file, json.stringify(default_deploy))
+finish
+
+make config_content becomes filesystem.read_file(config_file)
+make deploy_map becomes json.parse(config_content)
+make target becomes deploy_map field "target"
+make port becomes deploy_map field "port"
+
+say "Deploying to target: " + target
+say "Application port: " + port
+
+when target same_as "local"
+    say "Starting local background process..."
+    say "Start your app manually using: vss main.vss"
+finish
+say "Deployment complete!"
