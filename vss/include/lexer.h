@@ -2,17 +2,5 @@
 #define VSS_LEXER_H
 
 #include "token.h"
-
-typedef struct {
-    const char *source;
-    const char *start;
-    const char *current;
-    int line;
-    int column;
-    int token_column;
-} VSS_Lexer;
-
-void vss_lexer_init(VSS_Lexer *lexer, const char *source);
-VSS_Token vss_lexer_next(VSS_Lexer *lexer);
-
+typedef struct { const char *_x0444; const char *_x0450; const char *_x01fe; int _x0317; int _x01d9; int _x048b; } _x0054; void _x04e2(_x0054 *_x0314, const char *_x0444); _x011f _x04e3(_x0054 *_x0314);
 #endif

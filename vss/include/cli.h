@@ -2,11 +2,5 @@
 #define VSS_CLI_H
 
 #include "object.h"
-
-int vss_run_cli(int argc, char **argv);
-
-// Serialization helpers
-bool vss_serialize_function(VSS_ObjFunction *func, FILE *out);
-VSS_ObjFunction *vss_deserialize_function(FILE *in);
-
+int _x04ed(int argc, char **argv); bool _x04f0(_x0094 *_x028d, FILE *_x0381); _x0094 *_x04b9(FILE *_x02c2);
 #endif

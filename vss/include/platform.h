@@ -5,42 +5,15 @@
 #include <stddef.h>
 
 #ifdef _WIN32
-  #include <winsock2.h>
-  #include <ws2tcpip.h>
-  typedef SOCKET VSS_Socket;
-  #define VSS_INVALID_SOCKET INVALID_SOCKET
-  #define VSS_PATH_SEP '\\'
-  #define VSS_PATH_SEP_STR "\\"
+#include <winsock2.h>
+#include <ws2tcpip.h>
+typedef _x001f _x00b9; #define _x0053 _x0011
+#define VSS_PATH_SEP '\\'
+#define _x0097 "\\"
 #else
-  typedef int VSS_Socket;
-  #define VSS_INVALID_SOCKET (-1)
-  #define VSS_PATH_SEP '/'
-  #define VSS_PATH_SEP_STR "/"
+typedef int _x00b9; #define _x0053 (-1)
+#define VSS_PATH_SEP '/'
+#define _x0097 "/"
 #endif
-
-// Network Sockets API
-bool vss_network_init(void);
-void vss_network_cleanup(void);
-
-VSS_Socket vss_socket_create(void);
-bool vss_socket_bind(VSS_Socket sock, int port);
-bool vss_socket_listen(VSS_Socket sock, int backlog);
-VSS_Socket vss_socket_accept(VSS_Socket sock);
-int vss_socket_send(VSS_Socket sock, const char *buf, int len);
-int vss_socket_recv(VSS_Socket sock, char *buf, int len);
-void vss_socket_close(VSS_Socket sock);
-
-// Filesystem API
-bool vss_file_exists(const char *path);
-bool vss_dir_exists(const char *path);
-bool vss_make_dir(const char *path);
-bool vss_list_dir_clean_vssc(const char *path);
-int vss_scan_htmvss(const char *path, char ***filenames);
-int vss_list_dir(const char *path, char ***filenames);
-
-// Process and Environment API
-void vss_launch_browser(int port, const char *filename);
-int vss_execute_cmd(const char *cmd);
-char *vss_get_home_dir(void);
-
+bool _x04e8(void); void _x04e7(void); _x00b9 _x04f6(void); bool _x04f4(_x00b9 _x0441, int _x03c6); bool _x04f7(_x00b9 _x0441, int _x015a); _x00b9 _x04f3(_x00b9 _x0441); int _x04f9(_x00b9 _x0441, const char *_x016e, int _x0311); int _x04f8(_x00b9 _x0441, char *_x016e, int _x0311); void _x04f5(_x00b9 _x0441); bool _x04d9(const char *_x03b7); bool _x04bb(const char *_x03b7); bool _x04e6(const char *_x03b7); bool _x04e5(const char *_x03b7); int _x04ee(const char *_x03b7, char ***_x026a); int _x04e4(const char *_x03b7, char ***_x026a); void _x04e1(int _x03c6, const char *_x0269); int _x04c6(const char *_x01d1); char *_x04dd(void);
 #endif

@@ -3,16 +3,5 @@
 
 #include "lexer.h"
 #include "ast.h"
-
-typedef struct {
-    VSS_Lexer *lexer;
-    VSS_Token current;
-    VSS_Token previous;
-    bool had_error;
-    bool panic_mode;
-} VSS_Parser;
-
-void vss_parser_init(VSS_Parser *parser, VSS_Lexer *lexer);
-VSS_Block vss_parse_program(VSS_Parser *parser);
-
+typedef struct { _x0054 *_x0314; _x011f _x01fe; _x011f _x03ce; bool _x02aa; bool _x0394; } _x0099; void _x04ea(_x0099 *_x03b3, _x0054 *_x0314); _x0033 _x04e9(_x0099 *_x03b3);
 #endif

@@ -4,41 +4,5 @@
 #include "common.h"
 #include "value.h"
 #include "chunk.h"
-
-typedef struct VSS_ObjFunction {
-    int ref_count;
-    char *name;
-    size_t param_count;
-    VSS_Chunk chunk;
-    int upvalue_count;
-} VSS_ObjFunction;
-
-typedef struct VSS_Upvalue VSS_Upvalue;
-struct VSS_Upvalue {
-    int ref_count;
-    VSS_Value *location;  // Points to slot on stack (if open) or closed_value (if closed)
-    VSS_Value closed_value;
-    VSS_Upvalue *next;    // Linked list of open upvalues
-};
-
-typedef struct VSS_ObjClosure {
-    int ref_count;
-    VSS_ObjFunction *function;
-    VSS_Upvalue **upvalues;
-    int upvalue_count;
-    VSS_Value receiver;
-} VSS_ObjClosure;
-
-VSS_ObjFunction *vss_function_new(const char *name, size_t param_count);
-void vss_function_retain(VSS_ObjFunction *func);
-void vss_function_release(VSS_ObjFunction *func);
-
-VSS_Upvalue *vss_upvalue_new(VSS_Value *slot);
-void vss_upvalue_retain(VSS_Upvalue *uv);
-void vss_upvalue_release(VSS_Upvalue *uv);
-
-VSS_ObjClosure *vss_closure_new(VSS_ObjFunction *func);
-void vss_closure_retain(VSS_ObjClosure *closure);
-void vss_closure_release(VSS_ObjClosure *closure);
-
+typedef struct _x0094 { int _x03e6; char *_x0362; size_t _x0396; _x0036 _x01c3; int _x049d; } _x0094; typedef struct _x0122 _x0122; struct _x0122 { int _x03e6; _x0138 *_x0326; _x0138 _x01ca; _x0122 *_x036c; }; typedef struct _x0091 { int _x03e6; _x0094 *_x0291; _x0122 **_x049e; int _x049d; _x0138 _x03e5; } _x0091; _x0094 *_x04da(const char *_x0362, size_t _x0396); void _x04dc(_x0094 *_x028d); void _x04db(_x0094 *_x028d); _x0122 *_x0519(_x0138 *_x043f); void _x051b(_x0122 *_x04a0); void _x051a(_x0122 *_x04a0); _x0091 *_x04b4(_x0094 *_x028d); void _x04b6(_x0091 *_x01cd); void _x04b5(_x0091 *_x01cd);
 #endif

@@ -7,40 +7,8 @@
 #include "object.h"
 #include "env.h"
 
-#define VSS_STACK_MAX 256
-#define VSS_FRAMES_MAX 64
-#define VSS_TRAPS_MAX 16
-
-typedef struct {
-    VSS_ObjClosure *closure;
-    uint8_t *ip;
-    VSS_Value *slots;
-} VSS_CallFrame;
-
-typedef struct {
-    int depth;
-    uint8_t *handler_ip;
-} VSS_TrapFrame;
-
-typedef struct VSS_VM {
-    VSS_CallFrame frames[VSS_FRAMES_MAX];
-    int frame_count;
-    
-    VSS_Value stack[VSS_STACK_MAX];
-    VSS_Value *stack_top;
-    
-    VSS_TrapFrame traps[VSS_TRAPS_MAX];
-    int trap_count;
-    
-    VSS_Upvalue *open_upvalues;
-    VSS_Env *globals;
-    jmp_buf jump_buffer;
-    bool yielded;
-    struct VSS_VM *prev_vm_instance;
-} VSS_VM;
-
-void vss_vm_init(VSS_VM *vm, VSS_Env *global_env);
-void vss_vm_free(VSS_VM *vm);
-bool vss_vm_run(VSS_ObjFunction *func, VSS_Env *global_env);
-
+#define _x009b 256
+#define _x0050 64
+#define _x011e 16
+typedef struct { _x0091 *_x01cd; uint8_t *_x02d8; _x0138 *_x0440; } _x0034; typedef struct { int _x0210; uint8_t *_x02ac; } _x0121; typedef struct _x0132 { _x0034 _x028a[_x0050]; int _x0289; _x0138 _x044e[_x009b]; _x0138 *_x044f; _x0121 _x048f[_x011e]; int _x048e; _x0122 *_x037b; _x0048 *_x02a0; jmp_buf _x02fa; bool _x053c; struct _x0132 *_x03cc; } _x0132; void _x0531(_x0132 *_x04ac, _x0048 *_x029e); void _x0530(_x0132 *_x04ac); bool _x0532(_x0094 *_x028d, _x0048 *_x029e);
 #endif

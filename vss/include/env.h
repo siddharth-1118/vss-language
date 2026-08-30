@@ -3,29 +3,5 @@
 
 #include "common.h"
 #include "value.h"
-
-typedef struct {
-    char *name;
-    VSS_Value value;
-    bool is_constant;
-} VSS_Binding;
-
-typedef struct VSS_Env {
-    int ref_count;
-    VSS_Binding *items;
-    size_t count;
-    size_t capacity;
-    struct VSS_Env *parent;
-} VSS_Env;
-
-VSS_Env *vss_env_new(VSS_Env *parent);
-void vss_env_retain(VSS_Env *env);
-void vss_env_release(VSS_Env *env);
-
-bool vss_env_define(VSS_Env *env, const char *name, VSS_Value value);
-bool vss_env_define_const(VSS_Env *env, const char *name, VSS_Value value);
-bool vss_env_assign(VSS_Env *env, const char *name, VSS_Value value);
-bool vss_env_get(VSS_Env *env, const char *name, VSS_Value *out_value);
-bool vss_env_exists_local(VSS_Env *env, const char *name);
-
+typedef struct { char *_x0362; _x0138 _x04a7; bool _x02de; } _x0032; typedef struct _x0048 { int _x03e6; _x0032 *_x02f5; size_t _x01f4; size_t _x01b4; struct _x0048 *_x0399; } _x0048; _x0048 *_x04c3(_x0048 *_x0399); void _x04c5(_x0048 *_x0241); void _x04c4(_x0048 *_x0241); bool _x04bf(_x0048 *_x0241, const char *_x0362, _x0138 _x04a7); bool _x04c0(_x0048 *_x0241, const char *_x0362, _x0138 _x04a7); bool _x04be(_x0048 *_x0241, const char *_x0362, _x0138 _x04a7); bool _x04c2(_x0048 *_x0241, const char *_x0362, _x0138 *_x0386); bool _x04c1(_x0048 *_x0241, const char *_x0362);
 #endif

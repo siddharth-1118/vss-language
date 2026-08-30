@@ -2,8 +2,5 @@
 #define VSS_JSON_H
 
 #include "value.h"
-
-VSS_Value vss_json_parse(const char *json_str, bool *out_error, char **out_error_msg);
-char *vss_json_serialize(VSS_Value val);
-
+_x0138 _x04df(const char *_x02f8, bool *_x0382, char **_x0383); char *_x04e0(_x0138 _x04a4);
 #endif

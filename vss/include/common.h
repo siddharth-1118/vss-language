@@ -4,8 +4,5 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-
-extern const char *vss_current_source;
-
+extern const char *_x04b8;
 #endif
-

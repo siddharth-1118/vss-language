@@ -4,24 +4,5 @@
 #include "ast.h"
 #include "env.h"
 #include "value.h"
-
-typedef enum {
-    VSS_FLOW_NORMAL,
-    VSS_FLOW_SEND,
-    VSS_FLOW_LEAVE,
-    VSS_FLOW_SKIP,
-    VSS_FLOW_ERROR
-} VSS_FlowType;
-
-typedef struct {
-    VSS_FlowType type;
-    VSS_Value value;     // For VSS_FLOW_SEND
-    char *error_msg; // For VSS_FLOW_ERROR
-    int line;
-    int column;
-} VSS_FlowResult;
-
-VSS_FlowResult vss_interpret(VSS_Block block, VSS_Env *env);
-void vss_register_builtins(VSS_Env *env);
-
+typedef enum { _x004d, _x004e, _x004c, _x004f, _x004b } _x0052; typedef struct { _x0052 _x0494; _x0138 _x04a7; char *_x0247; int _x0317; int _x01d9; } _x0051; _x0051 _x04de(_x0033 _x0160, _x0048 *_x0241); void _x04eb(_x0048 *_x0241);
 #endif

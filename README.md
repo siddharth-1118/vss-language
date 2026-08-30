@@ -1,234 +1,318 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/VSS-Programming%20Language-blue?style=for-the-badge&logo=code&logoColor=white" />
-<img src="https://img.shields.io/github/v/release/siddharth-1118/vss-language?style=for-the-badge&color=green" />
-<img src="https://img.shields.io/github/stars/siddharth-1118/vss-language?style=for-the-badge&color=yellow" />
-<img src="https://img.shields.io/github/license/siddharth-1118/vss-language?style=for-the-badge" />
+# VSS Programming Language
 
-# 🚀 VSS Programming Language
+**A beginner-friendly, dynamically typed scripting language with clean, English-like syntax**
 
-**A modern, simple, and powerful programming language with native web server support**
+[![Version](https://img.shields.io/badge/version-2.2.2-blue?style=flat-square)](https://github.com/siddharth-1118/vss-language/releases/tag/v2.2.2)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![VS Code](https://img.shields.io/visual-studio-marketplace/v/saisiddharth.vss-language?label=VS%20Code&style=flat-square&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=saisiddharth.vss-language)
+[![WinGet](https://img.shields.io/badge/winget-VSS.VSS-0078D4?style=flat-square&logo=windows)](https://github.com/microsoft/winget-pkgs/pull/408829)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)](https://github.com/siddharth-1118/vss-language/releases)
 
-[📦 Install](#-installation) · [📖 Docs](#-language-guide) · [🌐 Web Server](#-web-server) · [💬 Discussions](https://github.com/siddharth-1118/vss-language/discussions)
+<br/>
+
+| 📦 [VSS Source Code](#-vss-source-code) | ⚙️ [Compiler Source Code](#️-compiler-source-code) | 🔧 [Runtime](#-runtime) | 📚 [Documentation / User Manual](#-documentation--user-manual) |
+|:---:|:---:|:---:|:---:|
 
 </div>
 
 ---
 
-## ✨ What is VSS?
-
-VSS is a clean, readable programming language designed to be **simple yet powerful**. It features:
-
-- 🌐 **Native HTTP web server** — build websites with just a few lines
-- 🗄️ **Built-in SQLite database** — no external setup needed
-- 📁 **File system operations** — read, write, list files easily
-- 🔐 **Crypto functions** — MD5, SHA-256 hashing built-in
-- 🌍 **HTTP client** — call any REST API
-- 📦 **JSON, XML, CSV** support out of the box
-- 🧮 **Math library** — sin, cos, sqrt, pow and more
-
----
-
-## 📦 Installation
+## Install VSS
 
 ### Windows
-Download `VSS-3.0.0-Setup.exe` from [Releases](https://github.com/siddharth-1118/vss-language/releases/latest)
 
-Or install via **winget**:
-```bash
+```powershell
+irm https://raw.githubusercontent.com/siddharth-1118/vss-language/main/install/install.ps1 | iex
+```
+
+Or with WinGet:
+```
 winget install VSS.VSS
 ```
 
-### Linux
+### Linux / macOS
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/siddharth-1118/vss-language/main/install/install.sh | sh
+```
+
+---
+
+## Quick Start
+
+```vss
+say "Hello, World!"
+```
+
+```vss
+# Variables
+name is "VSS"
+version is 2.2.2
+
+# Conditions
+when version is greater than 2
+    say "Welcome to " + name
+end
+
+# Loops
+repeat 3 times
+    say "VSS is simple!"
+end
+```
+
+---
+
+## 📦 VSS Source Code
+
+The complete VSS language source is in the [`vss/`](vss/) directory.
+
+| Path | Description |
+|------|-------------|
+| [`vss/src/`](vss/src/) | All C source files (compiler, VM, builtins, stdlib) |
+| [`vss/include/`](vss/include/) | Public header files for all modules |
+| [`vss/stdlib/`](vss/stdlib/) | Standard library modules (math, string, file, json, http…) |
+| [`vss/examples/`](vss/examples/) | Example VSS programs |
+| [`vss/Makefile`](vss/Makefile) | Build system — run `make` to compile |
+
+### Build from Source
+
 ```bash
-wget https://github.com/siddharth-1118/vss-language/releases/latest/download/vss-linux-x64.tar.gz
-tar -xzf vss-linux-x64.tar.gz
-sudo mv vss /usr/local/bin/
-```
+# Linux / macOS
+git clone https://github.com/siddharth-1118/vss-language.git
+cd vss-language/vss
+make
+./vss --version
 
-### macOS
-```bash
-curl -L https://github.com/siddharth-1118/vss-language/releases/latest/download/vss-macos-arm64.tar.gz | tar xz
-sudo mv vss /usr/local/bin/
-```
-
----
-
-## 🌐 Web Server
-
-Build a full website in VSS — no frameworks needed!
-
-```vss
-grab web
-
-web.route("/", { req ->
-    send "<!DOCTYPE html><html><body><h1>Hello from VSS!</h1></body></html>"
-})
-
-web.route("/about", { req ->
-    send "<!DOCTYPE html><html><body><h1>About VSS</h1></body></html>"
-})
-
-say "Server running at http://localhost:8080"
-web.serve(8080)
+# Windows (MSVC)
+cd vss
+nmake /f Makefile.win
+vss.exe --version
 ```
 
 ---
 
-## 📖 Language Guide
+## ⚙️ Compiler Source Code
 
-### Variables & Output
-```vss
-let name = "VSS"
-let version = 3.0
-say "Welcome to " + name + " v" + version
+The compiler is a multi-stage pipeline written in C, located in [`vss/src/`](vss/src/).
+
+| File | Stage | Description |
+|------|-------|-------------|
+| [`lexer.c`](vss/src/lexer.c) | **Lexing** | Tokenises VSS source into a stream of tokens |
+| [`parser.c`](vss/src/parser.c) | **Parsing** | Recursive-descent parser — builds the AST |
+| [`ast.c`](vss/src/ast.c) | **AST** | Abstract Syntax Tree node definitions and utilities |
+| [`semantic.c`](vss/src/semantic.c) | **Semantic Analysis** | Type checking, scope resolution, error diagnostics |
+| [`compiler.c`](vss/src/compiler.c) | **Code Generation** | Walks the AST and emits bytecode chunks |
+| [`chunk.c`](vss/src/chunk.c) | **Bytecode** | Bytecode chunk format and opcode table |
+| [`main.c`](vss/src/main.c) | **Entry Point** | CLI driver — connects all stages |
+| [`cli.c`](vss/src/cli.c) | **CLI** | `run`, `build`, `new`, `test`, `fmt`, `lint`, `docs` commands |
+
+### Compiler Architecture
+
+```
+Source (.vss)
+    │
+    ▼
+ Lexer (lexer.c)
+    │  Token stream
+    ▼
+ Parser (parser.c)
+    │  Abstract Syntax Tree
+    ▼
+ Semantic Analyser (semantic.c)
+    │  Resolved AST + error diagnostics
+    ▼
+ Compiler / Code Gen (compiler.c)
+    │  Bytecode chunks
+    ▼
+ VM (vm.c)  ──►  Output
 ```
 
-### Functions (Tasks)
-```vss
-task greet needs name
-    say "Hello, " + name + "!"
-finish
-
-greet("World")
-```
-
-### Conditions
-```vss
-let score = 95
-
-check score >= 90 then
-    say "A grade!"
-else check score >= 80 then
-    say "B grade!"
-else
-    say "Keep studying!"
-finish
-```
-
-### Loops
-```vss
-repeat 5 times
-    say "VSS is awesome!"
-finish
-
-let i = 0
-loop while i < 10
-    say i
-    let i = i + 1
-finish
-```
-
-### Closures
-```vss
-let double = { x -> x * 2 }
-say double(21)   note → 42
-```
-
-### Namespaces
-```vss
-namespace utils
-    task add needs a, b
-        send a + b
-    finish
-finish
-
-say utils_add(3, 4)   note → 7
-```
+See [`vss/docs/compiler-architecture.md`](vss/docs/compiler-architecture.md) for full design notes.
 
 ---
 
-## 📚 Standard Library
+## 🔧 Runtime
 
-| Module | Functions |
-|--------|-----------|
-| `web` | `route(path, handler)`, `serve(port)` |
-| `math` | `sin`, `cos`, `sqrt`, `pow`, `log`, `ceil`, `floor` |
-| `string` | `upper`, `lower`, `length`, `trim`, `split`, `join`, `replace` |
-| `filesystem` | `read`, `write`, `exists`, `list` |
-| `json` | `parse`, `stringify`, `read`, `write` |
-| `database` | `open`, `execute`, `query` |
-| `http` | `request(method, url)` |
-| `crypto` | `md5`, `sha256` |
-| `testing` | `assert` |
+The VSS runtime is a **register-less stack-based bytecode VM** with **Automatic Reference Counting (ARC)** for memory management.
+
+| File | Description |
+|------|-------------|
+| [`vm.c`](vss/src/vm.c) | Core bytecode interpreter / execution loop |
+| [`value.c`](vss/src/value.c) | Value types — numbers, strings, booleans, lists, maps |
+| [`object.c`](vss/src/object.c) | Heap-allocated objects — Shapes, Closures, Blueprints, Generators |
+| [`builtins.c`](vss/src/builtins.c) | Built-in functions (print, input, len, type, …) |
+| [`env.c`](vss/src/env.c) | Variable environment / scope chain |
+| [`interpreter.c`](vss/src/interpreter.c) | Tree-walk interpreter (fallback / debug mode) |
+| [`platform.c`](vss/src/platform.c) | OS abstraction layer (Windows / Linux / macOS) |
+
+### Runtime Features
+
+| Feature | Description |
+|---------|-------------|
+| **ARC** | Zero-cost automatic memory management via reference counting |
+| **Coroutines** | Stackful coroutines with `yield` / `resume` for cooperative concurrency |
+| **Closures** | First-class functions capturing lexical environments |
+| **Shapes** | Struct-like value types with named fields |
+| **Blueprints** | Interfaces / protocols for polymorphism |
+| **Pattern Matching** | Exhaustive `match` over `choice` algebraic types |
+| **Standard Library** | `math`, `string`, `file`, `json`, `http`, `time`, `random`, `system`, `database`, `crypto`, `network` |
 
 ---
 
-## 🗄️ Database Example
+## 📚 Documentation / User Manual
 
+| Document | Description |
+|----------|-------------|
+| [`vss/docs/vss-spec-v0.1.md`](vss/docs/vss-spec-v0.1.md) | Full VSS language specification |
+| [`vss/docs/compiler-architecture.md`](vss/docs/compiler-architecture.md) | Compiler internals deep-dive |
+| [`vss/docs/lexer-implementation.md`](vss/docs/lexer-implementation.md) | Lexer design and token reference |
+| [`vss/examples/`](vss/examples/) | Runnable example programs |
+| [`CHANGELOG.md`](vss/CHANGELOG.md) | Full version history |
+
+### Language Reference
+
+#### Variables
 ```vss
-grab database
-
-let db = database.open("myapp.db")
-database.execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER, task TEXT)")
-database.execute(db, "INSERT INTO todos VALUES (1, 'Learn VSS')")
-
-let todos = database.query(db, "SELECT * FROM todos")
-say todos
+name is "Alice"
+age is 25
+score is 98.5
+active is true
 ```
 
----
-
-## 🧪 Testing
-
+#### Functions
 ```vss
-grab testing
+task greet with person
+    say "Hello, " + person
+end
 
-task add needs a, b
-    send a + b
-finish
-
-testing.assert(add(2, 3) == 5, "addition works")
-testing.assert(add(0, 0) == 0, "zero works")
-say "All tests passed!"
+greet "World"
 ```
 
----
-
-## 🔐 Crypto
-
+#### Shapes (Structs)
 ```vss
-grab crypto
+shape Point
+    x
+    y
+end
 
-let hash = crypto.sha256("hello world")
-say hash
+p is Point with x as 10 y as 20
+say p.x
 ```
 
----
-
-## 📁 File System
-
+#### Closures & Lambdas
 ```vss
-grab filesystem
+adder is task with n
+    give task with x
+        give x + n
+    end
+end
 
-filesystem.write("notes.txt", "Hello VSS!")
-let content = filesystem.read("notes.txt")
-say content
-
-let files = filesystem.list(".")
-say files
+add5 is adder 5
+say add5 3    # 8
 ```
 
+#### Choices & Pattern Matching
+```vss
+choice Direction
+    North
+    South
+    East
+    West
+end
+
+d is Direction.North
+
+match d
+    when North: say "Going north"
+    when South: say "Going south"
+    else:       say "Going somewhere"
+end
+```
+
+#### Blueprints (Interfaces)
+```vss
+blueprint Drawable
+    draw
+end
+
+shape Circle uses Drawable
+    radius
+    task draw
+        say "Drawing circle r=" + self.radius
+    end
+end
+```
+
+#### Coroutines & Generators
+```vss
+task counter with start
+    n is start
+    repeat forever
+        yield n
+        n is n + 1
+    end
+end
+
+gen is coroutine counter 1
+say resume gen    # 1
+say resume gen    # 2
+say resume gen    # 3
+```
+
+#### Interactive User Input
+
+VSS supports interactive user input via the `ask` statement. You can read lines from the terminal (stdin) and automatically assign them to mutable variables. The input will be converted to match the target variable's existing type.
+
+##### Basic Syntax
+```vss
+make name becomes ""
+ask name
+say "Hello, " + name
+```
+
+##### Optional Prompt
+```vss
+make age becomes 0
+ask "Enter your age: " into age
+say "Next year you will be " + (age + 1)
+```
+
+##### Supported Types
+VSS automatically converts input into the target variable's existing type:
+* **String** (`VSS_VAL_STRING` / `"text"`): input is assigned as a string (with trailing newline removed).
+* **Number** (`VSS_VAL_NUMBER` / `"number"`): input is parsed as a number. If input is empty or invalid, a VSS runtime error is raised.
+* **Boolean** (`VSS_VAL_BOOL` / `"boolean"`): input is matched case-insensitively. `"yes"`, `"true"`, and `"1"` resolve to `yes` (true), while `"no"`, `"false"`, and `"0"` resolve to `no` (false). Other values raise a VSS runtime error.
+
 ---
 
-## 💬 Community
+## VS Code Extension
 
-- 💬 [GitHub Discussions](https://github.com/siddharth-1118/vss-language/discussions) — Ask questions, share ideas
-- 🐛 [Issues](https://github.com/siddharth-1118/vss-language/issues) — Report bugs
-- 🔀 [Pull Requests](https://github.com/siddharth-1118/vss-language/pulls) — Contribute
+Install syntax highlighting, IntelliSense, and code snippets for `.vss` files:
 
----
+**[VSS Language — VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saisiddharth.vss-language)**
 
-## 📄 License
-
-MIT License — free to use, modify, and distribute.
+Or in VS Code: `Ctrl+P` → `ext install saisiddharth.vss-language`
 
 ---
 
-<div align="center">
+## Releases
 
-**If VSS helped you, please ⭐ star this repo!**
+| Platform | Download |
+|----------|----------|
+| Windows (Installer) | [VSS-2.2.2-Setup.exe](https://github.com/siddharth-1118/vss-language/releases/download/v2.2.2/VSS-2.2.2-Setup.exe) |
+| Windows (Zip) | [vss-windows-x64.zip](https://github.com/siddharth-1118/vss-language/releases/download/v2.2.2/vss-windows-x64.zip) |
+| Linux x64 | [vss-linux-x64.tar.gz](https://github.com/siddharth-1118/vss-language/releases/download/v2.2.2/vss-linux-x64.tar.gz) |
+| macOS (Apple Silicon) | [vss-macos-arm64.tar.gz](https://github.com/siddharth-1118/vss-language/releases/download/v2.2.2/vss-macos-arm64.tar.gz) |
+| macOS (Intel) | [vss-macos-x64.tar.gz](https://github.com/siddharth-1118/vss-language/releases/download/v2.2.2/vss-macos-x64.tar.gz) |
 
-Made with ❤️ by [siddharth-1118](https://github.com/siddharth-1118)
+View all releases: [github.com/siddharth-1118/vss-language/releases](https://github.com/siddharth-1118/vss-language/releases)
 
-</div>
+---
+
+## License
+
+MIT License — Copyright (c) 2024-2026 Siddharth (siddharth-1118)
+
+See [LICENSE](LICENSE) for full text.
